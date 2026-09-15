@@ -7,6 +7,9 @@ y envia un correo de aviso.
 Ver tambien:
   ../README.md
   ../ARCHIVOS.md
+  ../DOCUMENTACION_PROCESO.md
+  ../DICCIONARIO_DATOS_EXCEL.md
+  ../CHECKLIST_ENTREGA.md
 
 
 --------------------------------------------------

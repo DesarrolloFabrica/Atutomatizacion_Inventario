@@ -6,6 +6,9 @@ genera un CSV y registra los archivos tipo granulo en PostgreSQL (Cloud SQL).
 Ver tambien:
   ../README.md
   ../ARCHIVOS.md
+  ../DOCUMENTACION_PROCESO.md
+  ../DICCIONARIO_DATOS_EXCEL.md
+  ../CHECKLIST_ENTREGA.md
 
 Esquema por defecto: fabrica_pruebas
 Produccion: fabrica (solo si el equipo lo pide)
@@ -78,7 +81,9 @@ EXCEL -> VALORES EN GCP
 
   PRODUCTO           -> cliente PRODUCTO , raiz LMS_Carga
   TANIA              -> cliente TANIA    , raiz LMS_Carga
-  LMS_correcciones   -> cliente PRODUCTO , raiz LMS_CORRECCIONES
+  LMS_correcciones   -> cliente PRODUCTO , raiz LMS_Carga
+
+LMS_correcciones es clasificación de lote, no carpeta raíz.
 
 Solo archivos G + digitos entran al CSV/base.
 

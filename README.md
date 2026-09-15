@@ -19,6 +19,9 @@ El flujo tiene tres bloques (capas operativas):
 
 Documentacion extra por carpeta y listado de archivos:
 
+- `DOCUMENTACION_PROCESO.md` — workflow completo + paso a paso
+- `DICCIONARIO_DATOS_EXCEL.md` — columnas de `RUTAS.xlsx`
+- `CHECKLIST_ENTREGA.md` — validacion al cerrar el lote
 - `CAMBIAR_FORMATO/README.md`
 - `CLONACION_CARPETA/README.md`
 - `LMS_Fabrica/README.md`
@@ -38,11 +41,21 @@ Documentacion extra por carpeta y listado de archivos:
 No corre todo en un solo comando ni en paralelo.
 Son bloques en serie.
 
+Para correrlos **encadenados de punta a punta**:
+
+```powershell
+python run_flujo.py
+```
+
+Opciones: `--con-formato`, `--excel RUTA`, `--sin-clon`, `--sin-gcp`, `--sin-correo`.
+Detalle en `DOCUMENTACION_PROCESO.md`.
+
 
 ## Estructura actual
 
 ```text
 ./
+├── run_flujo.py                        # orquestador continuo (opcional)
 ├── CAMBIAR_FORMATO/
 │   ├── convertir_jpg_a_png.py
 │   ├── codigo.js
@@ -70,6 +83,9 @@ Son bloques en serie.
 │   └── README.md
 ├── .env.example
 ├── .gitignore
+├── DOCUMENTACION_PROCESO.md
+├── DICCIONARIO_DATOS_EXCEL.md
+├── CHECKLIST_ENTREGA.md
 ├── ARCHIVOS.md
 └── README.md
 ```
@@ -100,6 +116,9 @@ Una fila = un lote.
 - `origen`: carpeta a clonar (en carga GCP solo es referencia).
 - `destino`: carpeta destino; en carga GCP es la **unica** que se escanea.
 - `cliente`: `PRODUCTO`, `TANIA` o `LMS_correcciones`.
+
+Detalle completo de columnas, valores y mapeo a GCP:
+ver `DICCIONARIO_DATOS_EXCEL.md`.
 
 El nombre del **programa** en GCP sale del nombre de la carpeta en Drive.
 
@@ -193,7 +212,23 @@ En nube o equipo compartido: secretos fuera del repo (nunca versionar
 - Para carga GCP: IP autorizada en Cloud SQL + `.env` completo
 
 
-## Ejecutar formato (opcional)
+## Ejecutar flujo continuo (recomendado)
+
+Desde la raíz del repo:
+
+```powershell
+python run_flujo.py
+```
+
+Eso encadena clonación → CSV → Cloud SQL (y se detiene si un paso falla).
+Con JPG previos:
+
+```powershell
+python run_flujo.py --con-formato
+```
+
+
+## Ejecutar formato (opcional, suelto)
 
 ```powershell
 cd CAMBIAR_FORMATO
@@ -251,6 +286,9 @@ python cargar_base_gcp.py -i lms_base_rutas.csv --schema fabrica_pruebas --sin-c
 Primero aseguras una copia limpia en Drive y un inventario compartido por correo;
 despues traduces esa carpeta destino a un CSV y la registras en la base de prueba,
 con otro correo para validar.
+
+Guia operativa completa: `DOCUMENTACION_PROCESO.md`.
+Validacion al cerrar: `CHECKLIST_ENTREGA.md`.
 
 
 Documentacion del flujo operativo LMS - alineada al estilo de repos Fabrica - sep 2026.

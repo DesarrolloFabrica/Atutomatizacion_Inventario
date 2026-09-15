@@ -70,6 +70,9 @@ from googleapiclient.discovery import build
 # Errores HTTP de la API de Google.
 from googleapiclient.errors import HttpError
 
+# Argumentos de línea de comandos (--excel).
+import argparse
+
 # Leer el Excel RUTAS.xlsx.
 from openpyxl import load_workbook
 
@@ -744,11 +747,23 @@ def _validar_carpeta(svc, folder_id: str, etiqueta: str) -> dict:
     return carpeta
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     """
     Orquestación completa del bloque de clonación:
       Excel → clonar cada ruta → inventario → Sheets → correo.
     """
+    parser = argparse.ArgumentParser(
+        description="Clona carpetas Drive según RUTAS.xlsx y encadena inventario + correo."
+    )
+    parser.add_argument(
+        "--excel",
+        type=Path,
+        default=RUTAS_XLSX,
+        help=f"Ruta a RUTAS.xlsx (default: {RUTAS_XLSX})",
+    )
+    args = parser.parse_args(argv)
+    excel_rutas = args.excel.resolve()
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
@@ -757,8 +772,8 @@ def main() -> None:
             logging.StreamHandler(sys.stdout),
         ],
     )
-    rutas = cargar_rutas_desde_excel(RUTAS_XLSX)
-    print(f"Iniciando (API Google Drive) — {len(rutas)} rutas en {RUTAS_XLSX.name}…", flush=True)
+    rutas = cargar_rutas_desde_excel(excel_rutas)
+    print(f"Iniciando (API Google Drive) — {len(rutas)} rutas en {excel_rutas.name}…", flush=True)
     creds = cargar_credenciales()
     svc = build("drive", "v3", credentials=creds, static_discovery=True)
     yo = ejecutar(svc.about().get(fields="user(emailAddress,displayName)"))

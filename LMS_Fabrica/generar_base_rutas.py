@@ -155,6 +155,7 @@ METADATA_EXTRA: dict[str, dict[str, str]] = {
     "LMS_CORRECCIONES": {
         "escuela": "",
         "cliente": "PRODUCTO",
+        "raiz": "LMS_Carga",
     },
 }
 
@@ -191,8 +192,9 @@ def cargar_metadata_programas(*fuentes: Path) -> dict[str, dict[str, str]]:
     return meta
 
 
-# En el Excel hay 3 clasificaciones. En GCP, cliente solo admite PRODUCTO/TANIA;
-# LMS_CORRECCIONES se guarda como raíz, no como cliente nuevo.
+# En el Excel hay 3 clasificaciones. En GCP, cliente solo admite PRODUCTO/TANIA.
+# LMS_correcciones NO es carpeta raíz: la raíz real sigue siendo LMS_Carga.
+# Se guarda como cliente PRODUCTO + raíz LMS_Carga (clasificación operativa).
 _ALIASES_CORRECCIONES = {
     "LMS_CORRECCIONES",
     "LMS_CORRECCION",
@@ -215,8 +217,8 @@ def es_clasificacion_correcciones(texto: str) -> bool:
 def normalizar_clasificacion(valor: object) -> dict[str, str] | None:
     """
     Traduce el valor de la columna cliente del Excel a cliente+raíz de GCP.
-    PRODUCTO/TANIA → raíz LMS_Carga.
-    LMS_correcciones (y alias) → cliente PRODUCTO + raíz LMS_CORRECCIONES.
+    PRODUCTO/TANIA/LMS_correcciones → raíz LMS_Carga (carpeta raíz real).
+    LMS_correcciones (y alias) → cliente PRODUCTO; no inventa raíz LMS_CORRECCIONES.
     """
     texto = norm_text(valor)
     if not texto:
@@ -225,7 +227,7 @@ def normalizar_clasificacion(valor: object) -> dict[str, str] | None:
         return {
             "clasificacion": "LMS_CORRECCIONES",
             "cliente": "PRODUCTO",
-            "raiz": "LMS_CORRECCIONES",
+            "raiz": "LMS_Carga",
         }
     if texto == "TANIA":
         return {"clasificacion": "TANIA", "cliente": "TANIA", "raiz": "LMS_Carga"}
@@ -367,8 +369,10 @@ def parsear_ruta_programa(
     programa = programa_norm
     idx = 0
     if es_carpeta_correcciones(partes[0]):
+        # La carpeta puede llamarse LMS_CORRECCIONES en Drive, pero la raíz
+        # canónica en GCP es LMS_Carga (no crear una raíz distinta).
         if not meta_prog.get("raiz"):
-            raiz_nombre = "LMS_CORRECCIONES"
+            raiz_nombre = "LMS_Carga"
         cliente = meta_prog.get("cliente", "PRODUCTO")
         if len(partes) > 1 and es_carpeta_escuela(partes[1]):
             escuela = norm_text(partes[1])
@@ -597,7 +601,7 @@ def generar(
             meta_prog = {
                 **meta_prog,
                 "cliente": "PRODUCTO",
-                "raiz": "LMS_CORRECCIONES",
+                "raiz": "LMS_Carga",
             }
         if clasif_excel:
             meta_prog["cliente"] = clasif_excel["cliente"]

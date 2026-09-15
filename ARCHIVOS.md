@@ -8,10 +8,14 @@ Los scripts .py tienen comentarios tutorial dentro del codigo.
 RAIZ
 ==================================================
 
-  README.md      -> vision general del flujo (estilo repos Fabrica)
-  ARCHIVOS.md    -> este inventario
-  .gitignore     -> evita subir secretos y basura de corridas
-  .env.example   -> plantilla de CORREOS_AVISO + DB_* (copiar a .env)
+  README.md                  -> vision general del flujo (estilo repos Fabrica)
+  DOCUMENTACION_PROCESO.md   -> workflow completo + paso a paso diario
+  DICCIONARIO_DATOS_EXCEL.md -> columnas de RUTAS.xlsx (diccionario de datos)
+  CHECKLIST_ENTREGA.md       -> validacion al cerrar / entregar el lote
+  run_flujo.py               -> orquestador continuo (clon -> CSV -> GCP)
+  ARCHIVOS.md                -> este inventario
+  .gitignore                 -> evita subir secretos y basura de corridas
+  .env.example               -> plantilla de CORREOS_AVISO + DB_* (copiar a .env)
 
 
 ==================================================
@@ -134,6 +138,10 @@ Ninguno se dispara solo por subir un PDF a Drive.
 ORDEN DE COMANDOS
 ==================================================
 
+  # Recomendado (continuo):
+  python run_flujo.py
+
+  # Bloques sueltos:
   cd CAMBIAR_FORMATO
   python convertir_jpg_a_png.py
 
@@ -143,3 +151,7 @@ ORDEN DE COMANDOS
   cd ..\LMS_Fabrica
   python generar_base_rutas.py --excel RUTAS.xlsx -o lms_base_rutas.csv
   python cargar_base_gcp.py -i lms_base_rutas.csv --schema fabrica_pruebas
+
+
+Detalle operativo: DOCUMENTACION_PROCESO.md
+Cierre de lote: CHECKLIST_ENTREGA.md
