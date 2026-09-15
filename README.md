@@ -1,190 +1,256 @@
-# Flujo LMS: formato, clonacion e inventario, carga a GCP
+# Automatizacion Inventario (Flujo LMS)
 
-Herramientas en Python para fabrica de contenido (CUN).
-Preparan material en Google Drive, lo clonan con control de calidad
+Herramientas en Python para fabrica de contenido (CUN):
+preparan material en Google Drive, lo clonan con control de calidad
 y lo registran en Cloud SQL (planner_db).
 
-Este repo NO incluye secretos. Cada persona configura OAuth y .env en su PC.
+Este repo NO incluye secretos. Cada persona configura OAuth y `.env` en local.
 
 
---------------------------------------------------
-DOCUMENTACION POR CARPETA
---------------------------------------------------
+## Capas del proyecto
 
-  CAMBIAR_FORMATO/README.md     -> JPG a PNG
-  CLONACION_CARPETA/README.md   -> clon + inventario + correo
-  LMS_Fabrica/README.md         -> CSV + Cloud SQL + correo
-  ARCHIVOS.md                   -> lista de cada archivo del repo
+El flujo tiene tres bloques (capas operativas):
 
+- `CAMBIAR_FORMATO/`: convierte JPG/JPEG a PNG en Drive (paso opcional).
+- `CLONACION_CARPETA/`: clona origen -> destino, inventaria, publica Google Sheet
+  y envia correo Gmail con el link del inventario.
+- `LMS_Fabrica/`: escanea el destino, genera CSV y carga a Cloud SQL;
+  al final envia correo Gmail con resumen + query SQL.
 
---------------------------------------------------
-FLUJO COMPLETO (ORDEN)
---------------------------------------------------
+Documentacion extra por carpeta y listado de archivos:
 
-  0. (Opcional) JPG -> PNG
-  1. Clonar origen -> destino en Drive
-  2. Inventario + Google Sheets + correo Gmail
-  3. Escanear destino -> CSV
-  4. Cargar CSV -> Cloud SQL + correo Gmail
-
-No corre todo junto ni en paralelo.
-Son bloques en serie. Cada bloque se lanza con su comando.
+- `CAMBIAR_FORMATO/README.md`
+- `CLONACION_CARPETA/README.md`
+- `LMS_Fabrica/README.md`
+- `ARCHIVOS.md`
 
 
---------------------------------------------------
-QUE HACE CADA BLOQUE
---------------------------------------------------
+## Flujo general
 
-1) CAMBIAR_FORMATO (opcional)
-   - Convierte JPG/JPEG a PNG en Drive.
-   - El JPG va a la papelera.
-   - Comando: python convertir_jpg_a_png.py
+1. (Opcional) Convertir JPG a PNG en Drive.
+2. Leer `RUTAS.xlsx` y clonar carpeta origen -> destino.
+3. Generar inventario (Excel local + Google Sheet) y enviar **correo 1**
+   (link de la Sheet).
+4. Escanear solo el **destino**, generar CSV intermedio.
+5. Cargar CSV a Cloud SQL (`fabrica_pruebas` por defecto) y enviar **correo 2**
+   (resumen + query SQL).
 
-2) CLONACION_CARPETA
-   - Lee RUTAS.xlsx (etiqueta, origen, destino).
-   - Copia el arbol origen -> destino (puede reanudar).
-   - Arma inventario (Excel local + una Google Sheet).
-   - Envia correo Gmail con el link de esa Sheet.
-   - Comando unico: python clone_carpeta_drive.py
-     (al terminar el mismo script llama inventario, Sheets y correo)
-
-3) LMS_Fabrica
-   - Escanea solo la columna DESTINO del Excel.
-   - Genera un CSV (puente para revisar).
-   - Carga a Cloud SQL (por defecto fabrica_pruebas).
-   - Envia otro correo Gmail con resumen y query SQL.
-   - Comandos:
-       python generar_base_rutas.py --excel RUTAS.xlsx -o lms_base_rutas.csv
-       python cargar_base_gcp.py -i lms_base_rutas.csv --schema fabrica_pruebas
+No corre todo en un solo comando ni en paralelo.
+Son bloques en serie.
 
 
---------------------------------------------------
-EXCEL RUTAS.xlsx
---------------------------------------------------
+## Estructura actual
 
-Una fila = un lote a procesar.
-
-  etiqueta  = apodo humano (ej. prueba_angie). No se guarda en GCP.
-  origen    = carpeta Drive a copiar (en carga GCP solo es referencia).
-  destino   = carpeta Drive destino. En carga GCP es la UNICA que se escanea.
-  cliente   = PRODUCTO, TANIA o LMS_correcciones (para clasificar en GCP).
-
-El nombre del PROGRAMA en la base sale del nombre de la carpeta en Drive,
-no de la etiqueta.
-
-
---------------------------------------------------
-METADATA_EXTRA (importante)
---------------------------------------------------
-
-En generar_base_rutas.py hay un diccionario largo con muchos programas.
-
-Eso NO es la lista de lo que se va a escanear.
-Es una libreta de apoyo (escuela / cliente por defecto).
-
-Lo que se procesa sale SOLO de las filas de RUTAS.xlsx.
-Si el Excel tiene 1 fila, solo se trabaja esa carpeta.
-
-
---------------------------------------------------
-DOS REGLAS DISTINTAS
---------------------------------------------------
-
-Inventario del clon (Drive):
-  - Cuenta por tipo de carpeta (Moodle, contenidos, SCORM, PDF, etc.).
-  - Archivos tipo 01_Quiz.txt en ACTIVIDADES MOODLE SI cuentan.
-
-Carga a GCP (LMS_Fabrica):
-  - Solo indexa archivos que empiezan con G + digitos (ej. G1001_intro.pdf).
-  - El resto puede estar en Drive, pero no entra al CSV ni a la base.
+```text
+./
+├── CAMBIAR_FORMATO/
+│   ├── convertir_jpg_a_png.py
+│   ├── codigo.js
+│   ├── codigos.txt
+│   ├── requirements.txt
+│   └── README.md
+├── CLONACION_CARPETA/
+│   ├── clone_carpeta_drive.py          # entrada principal del clon
+│   ├── reporte_inventario_clon.py
+│   ├── publicar_inventario_sheets.py
+│   ├── notificar_clonacion.py          # correo 1 (Sheet)
+│   ├── renovar_token.py
+│   ├── comparar_clon_drive.py          # diagnostico (no diario)
+│   ├── .env.example
+│   ├── requirements.txt
+│   └── README.md
+├── LMS_Fabrica/
+│   ├── generar_base_rutas.py           # Excel -> Drive -> CSV
+│   ├── cargar_base_gcp.py              # CSV -> Cloud SQL + correo 2
+│   ├── notificar_carga_lms.py
+│   ├── generar_base_lms.py             # libreria compartida
+│   ├── clonar_esquema_pruebas.py       # admin (una vez; no diario)
+│   ├── .env.example
+│   ├── requirements.txt
+│   └── README.md
+├── .env.example
+├── .gitignore
+├── ARCHIVOS.md
+└── README.md
+```
 
 
---------------------------------------------------
-CORREOS (HAY DOS)
---------------------------------------------------
+## Que NO va en el repositorio
 
-Despues del clon:
-  - Script: notificar_clonacion.py
-  - Lleva el link de la Google Sheet del inventario.
+Estas cosas se generan en local o son secretos; estan en `.gitignore`:
 
-Despues de cargar GCP:
-  - Script: notificar_carga_lms.py
-  - Lleva resumen + query SQL para validar.
+- `credentials.json` / `credenciales.json`
+- `token.json`
+- `.env`
+- `clonacion.log`, `hoja_inventario_id.txt`
+- CSV/Excel de corridas (`lms_base_rutas.csv`, `RUTAS.xlsx`, reportes)
+- `__pycache__/`, `.venv/`
+
+En runtime:
+
+- El inventario local y la Sheet se actualizan al clonar.
+- El CSV se crea al generar la base; no se versiona.
+
+
+## Excel RUTAS.xlsx
+
+Una fila = un lote.
+
+- `etiqueta`: apodo humano (no se guarda en GCP).
+- `origen`: carpeta a clonar (en carga GCP solo es referencia).
+- `destino`: carpeta destino; en carga GCP es la **unica** que se escanea.
+- `cliente`: `PRODUCTO`, `TANIA` o `LMS_correcciones`.
+
+El nombre del **programa** en GCP sale del nombre de la carpeta en Drive.
+
+`METADATA_EXTRA` en `generar_base_rutas.py` es un diccionario de apoyo
+(escuela/cliente). **No** es la lista de carpetas a escanear.
+Solo se procesan las filas del Excel.
+
+
+## Dos reglas distintas
+
+Inventario del clon:
+
+- Cuenta por tipo de carpeta (Moodle, contenidos, SCORM, PDF, etc.).
+- Archivos tipo `01_Quiz.txt` en ACTIVIDADES MOODLE **si** cuentan.
+
+Carga a GCP:
+
+- Solo indexa archivos `G` + digitos (ej. `G1001_intro.pdf`).
+- El resto puede existir en Drive, pero no entra al CSV ni a la base.
+
+
+## Correos (hay dos)
+
+Despues del clon (`notificar_clonacion.py`):
+
+- Link de la Google Sheet del inventario.
+
+Despues de cargar GCP (`notificar_carga_lms.py`):
+
+- Resumen del lote + query SQL para Cloud SQL Studio.
 
 Ninguno se dispara solo por subir un PDF a Drive.
-Destinatarios: CORREOS_AVISO en el archivo .env
+Destinatarios: `CORREOS_AVISO` en `.env`.
 
 
---------------------------------------------------
-CREDENCIALES (NO SUBIR A GIT)
---------------------------------------------------
+## Variables de entorno
 
-  credentials.json / credenciales.json  = OAuth Desktop de Google
-  token.json                            = sesion despues de autorizar
-  .env                                  = correos + datos de la base
+Copia la plantilla:
 
-Plantillas:
-  CLONACION_CARPETA/.env.example
-  LMS_Fabrica/.env.example
+```text
+copy .env.example .env
+```
 
-Hay un .gitignore en la raiz para no subir secretos.
+O usa la de cada bloque (`CLONACION_CARPETA/.env.example`, `LMS_Fabrica/.env.example`).
 
+Configura (ejemplo PowerShell):
 
---------------------------------------------------
-REQUISITOS
---------------------------------------------------
+```powershell
+$env:CORREOS_AVISO="correo1@cun.edu.co,correo2@cun.edu.co"
+$env:DB_HOST="TU_HOST"
+$env:DB_PORT="5432"
+$env:DB_NAME="planner_db"
+$env:DB_USER="TU_USUARIO"
+$env:DB_PASSWORD="TU_PASSWORD"
+$env:LMS_SCHEMA="fabrica_pruebas"
+```
 
-  - Python 3.10 o superior
-  - pip install -r requirements.txt (en cada carpeta que uses)
-  - Acceso a las carpetas de Drive del lote
-  - Para GCP: IP autorizada en Cloud SQL y .env completo
+Tambien puede ir en archivo `.env`:
 
+```env
+CORREOS_AVISO=correo1@cun.edu.co,correo2@cun.edu.co
+DB_HOST=
+DB_PORT=5432
+DB_NAME=planner_db
+DB_USER=
+DB_PASSWORD=
+LMS_SCHEMA=fabrica_pruebas
+```
 
---------------------------------------------------
-QUE NO ES FLUJO DIARIO
---------------------------------------------------
+Para Google Drive / Gmail / Sheets (desarrollo local) se usan OAuth Desktop:
 
-  - Crear el esquema fabrica_pruebas (se hace UNA vez).
-  - clonar_esquema_pruebas.py (solo administracion excepcional).
-  - comparar_clon_drive.py (diagnostico manual opcional).
-  - codigo.js / codigos.txt (respaldo Apps Script; el oficial es Python).
+- Clonacion: `CLONACION_CARPETA/credentials.json` + `token.json`
+- Formato / LMS: `credenciales.json` + `token.json` en su carpeta
 
+Scopes habituales: Drive, Sheets, Gmail send.
+Si el token caduca o falta permiso de correo:
 
---------------------------------------------------
-ESTRUCTURA DEL REPO
---------------------------------------------------
+```powershell
+cd CLONACION_CARPETA
+python renovar_token.py
+```
 
-  FlujoFormato_clonacion/
-  |-- README.md
-  |-- ARCHIVOS.md
-  |-- .gitignore
-  |-- CAMBIAR_FORMATO/
-  |-- CLONACION_CARPETA/
-  |-- LMS_Fabrica/
-
-
---------------------------------------------------
-PARA ANALISTAS (UNA FRASE)
---------------------------------------------------
-
-Primero aseguras una copia limpia en Drive y un inventario compartido
-por correo; despues traduces esa carpeta destino a un CSV y la registras
-en la base de prueba, con otro correo para validar.
+En nube o equipo compartido: secretos fuera del repo (nunca versionar
+`token.json`, `credentials.json` ni `.env`).
 
 
---------------------------------------------------
-COMANDOS RAPIDOS
---------------------------------------------------
+## Requisitos
 
-  cd CAMBIAR_FORMATO
-  python convertir_jpg_a_png.py
-
-  cd ..\CLONACION_CARPETA
-  python clone_carpeta_drive.py
-
-  cd ..\LMS_Fabrica
-  python generar_base_rutas.py --excel RUTAS.xlsx -o lms_base_rutas.csv
-  python cargar_base_gcp.py -i lms_base_rutas.csv --schema fabrica_pruebas
+- Python 3.10+
+- Acceso a las carpetas Drive del lote
+- Para carga GCP: IP autorizada en Cloud SQL + `.env` completo
 
 
-Documentacion del flujo operativo LMS - septiembre 2026.
+## Ejecutar formato (opcional)
+
+```powershell
+cd CAMBIAR_FORMATO
+pip install -r requirements.txt
+python convertir_jpg_a_png.py
+```
+
+Ajusta `ID_CARPETA` dentro del script antes de correr.
+
+
+## Ejecutar clonacion + inventario + correo
+
+```powershell
+cd CLONACION_CARPETA
+pip install -r requirements.txt
+python clone_carpeta_drive.py
+```
+
+Ese unico comando encadena inventario, Google Sheets y el correo 1.
+La ruta de `RUTAS.xlsx` esta fija en el codigo; cambiala si usas otro PC.
+
+
+## Ejecutar carga a GCP
+
+```powershell
+cd LMS_Fabrica
+pip install -r requirements.txt
+python generar_base_rutas.py --excel RUTAS.xlsx -o lms_base_rutas.csv
+python cargar_base_gcp.py -i lms_base_rutas.csv --schema fabrica_pruebas
+```
+
+Reclasificar cliente/raiz en prueba (no permitido en produccion `fabrica`):
+
+```powershell
+python cargar_base_gcp.py -i lms_base_rutas.csv --schema fabrica_pruebas --actualizar
+```
+
+Omitir correo:
+
+```powershell
+python cargar_base_gcp.py -i lms_base_rutas.csv --schema fabrica_pruebas --sin-correo
+```
+
+
+## Que no es flujo diario
+
+- Crear el esquema `fabrica_pruebas` (se hace una vez).
+- `clonar_esquema_pruebas.py` (solo administracion excepcional).
+- `comparar_clon_drive.py` (diagnostico manual).
+- `codigo.js` / `codigos.txt` (respaldo Apps Script; el oficial es Python).
+
+
+## Para analistas (una frase)
+
+Primero aseguras una copia limpia en Drive y un inventario compartido por correo;
+despues traduces esa carpeta destino a un CSV y la registras en la base de prueba,
+con otro correo para validar.
+
+
+Documentacion del flujo operativo LMS - alineada al estilo de repos Fabrica - sep 2026.

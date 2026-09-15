@@ -8,9 +8,10 @@ Los scripts .py tienen comentarios tutorial dentro del codigo.
 RAIZ
 ==================================================
 
-  README.md      -> vision general del flujo (este es el principal)
+  README.md      -> vision general del flujo (estilo repos Fabrica)
   ARCHIVOS.md    -> este inventario
   .gitignore     -> evita subir secretos y basura de corridas
+  .env.example   -> plantilla de CORREOS_AVISO + DB_* (copiar a .env)
 
 
 ==================================================
