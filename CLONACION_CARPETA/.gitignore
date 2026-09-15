@@ -1,0 +1,11 @@
+token.json
+credentials.json
+credenciales.json
+.env
+clonacion.log
+hoja_inventario_id.txt
+reporte_inventario_clon.xlsx
+reporte_comparacion_clon.txt
+__pycache__/
+*.pyc
+.venv/

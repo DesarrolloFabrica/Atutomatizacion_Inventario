@@ -1,0 +1,53 @@
+# CAMBIAR_FORMATO — codigos.txt
+# -----------------------------
+# Copia de respaldo del mismo script Apps Script que codigo.js
+# (JPG → PNG en Drive). No forma parte del flujo Python oficial.
+# Preferir convertir_jpg_a_png.py en la PC, o codigo.js en Apps Script.
+#
+# El contenido debajo es el código JS (igual que codigo.js).
+
+function convertirJPGaPNG() {
+  var idCarpeta = '1LexISrqWxiC3tAgfq3SQjyL6Pxh_0-GM';
+  var carpetaPrincipal = DriveApp.getFolderById(idCarpeta);
+
+  var contador = 0;
+  var errores = 0;
+
+  function procesarCarpeta(carpeta) {
+    // Procesa los JPG de esta carpeta
+    var archivos = carpeta.getFilesByType(MimeType.JPEG);
+
+    while (archivos.hasNext()) {
+      var archivo = archivos.next();
+      var nombreOriginal = archivo.getName();
+
+      try {
+        var blob = archivo.getBlob();
+        var blobPNG = blob.getAs('image/png');
+
+        var nuevoNombre = nombreOriginal.replace(/\.(jpg|jpeg)$/i, '') + '.png';
+        blobPNG.setName(nuevoNombre);
+
+        carpeta.createFile(blobPNG);
+        archivo.setTrashed(true);
+
+        contador++;
+        Logger.log('Convertido: ' + nombreOriginal + ' -> ' + nuevoNombre + ' (en carpeta: ' + carpeta.getName() + ')');
+
+      } catch (e) {
+        errores++;
+        Logger.log('Error al convertir ' + nombreOriginal + ': ' + e.message);
+      }
+    }
+
+    // Entra a cada subcarpeta y repite el proceso
+    var subcarpetas = carpeta.getFolders();
+    while (subcarpetas.hasNext()) {
+      procesarCarpeta(subcarpetas.next());
+    }
+  }
+
+  procesarCarpeta(carpetaPrincipal);
+
+  Logger.log('Proceso terminado. Archivos convertidos: ' + contador + '. Errores: ' + errores);
+}

@@ -1,0 +1,10 @@
+.env
+credenciales.json
+credentials.json
+token.json
+*.csv
+*.log
+RUTAS.xlsx
+__pycache__/
+*.pyc
+.venv/

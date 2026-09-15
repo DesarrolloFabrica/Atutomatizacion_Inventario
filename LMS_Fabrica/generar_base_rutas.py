@@ -1,0 +1,689 @@
+"""
+LMS_Fabrica — generar_base_rutas.py
+-----------------------------------
+Paso 1 de la carga a GCP (no escribe en la base; no envía correo).
+
+Entrada:  RUTAS.xlsx (filas con destino a escanear; cliente/etiqueta/origen).
+Salida:   CSV tipo studio_results (ej. lms_base_rutas.csv).
+
+Solo indexa archivos cuyo nombre empieza con G + dígitos (gránulos).
+METADATA_EXTRA NO es la lista de lotes: es un diccionario de apoyo
+(escuela/cliente por nombre de programa). Lo que se escanea sale del Excel.
+
+Siguiente script: cargar_base_gcp.py
+"""
+
+# ---------------------------------------------------------------------------
+# IMPORTS — librerías de este script (generar CSV desde Excel + Drive)
+# ---------------------------------------------------------------------------
+
+# Tipos modernos (Path | None, list[str], etc.).
+from __future__ import annotations
+
+# Leer argumentos de línea de comandos (--excel, -o).
+import argparse
+
+# Escribir el CSV de salida.
+import csv
+
+# Expresiones regulares (nombres, códigos, etc. vía helpers).
+import re
+
+# Salida de errores a stderr / códigos de retorno.
+import sys
+
+# Cola para recorrer carpetas en anchura (BFS).
+from collections import deque
+
+# Marca de tiempo UTC al generar filas.
+from datetime import datetime, timezone
+
+# Rutas de archivos.
+from pathlib import Path
+
+# Leer el Excel RUTAS.xlsx como tabla.
+import pandas as pd
+
+# Cliente API Drive + errores HTTP.
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+
+# Funciones compartidas (auth, parseo de rutas, código G, columnas del CSV…).
+from generar_base_lms import (
+    BASE_DIR,
+    COLUMNAS_SALIDA,
+    IdResolver,
+    MIME_FOLDER,
+    PAQUETES_VALIDOS_NORM,
+    ReferenciaGcp,
+    autenticar_drive,
+    es_carpeta_granulo,
+    extraer_codigo,
+    extraer_granulo_nombre,
+    extraer_id_carpeta,
+    listar_hijos,
+    norm_text,
+    obtener_extension,
+    parse_semestre,
+    parsear_ruta,
+)
+
+EXCEL_DEFAULT = BASE_DIR / "RUTAS.xlsx"
+if not EXCEL_DEFAULT.exists():
+    EXCEL_DEFAULT = BASE_DIR / "RUTAS.csv"
+SALIDA_DEFAULT = BASE_DIR / "lms_base_rutas.csv"
+# Referencia opcional para resolver IDs históricos. NO es la lista de rutas a procesar.
+REF_DEFAULT = Path(r"c:\Users\sara_martinezl\Downloads\studio_results_20260618_1055.csv")
+
+# Catálogo de apoyo (escuela / cliente por defecto) por nombre de programa en Drive.
+# NO son filas a escanear: lo que se procesa sale solo de RUTAS.xlsx.
+# Si el Excel trae cliente/raíz, esos valores ganan sobre este diccionario.
+METADATA_EXTRA: dict[str, dict[str, str]] = {
+    "ESPECIALIZACION_EN_GOBERNANZA_DE_LA_INTELIGENCIA_ARTIFICIAL": {
+        "escuela": "ESCUELA_CIENCIAS_SOCIALES_JURIDICAS_Y_GOBIERNO",
+        "cliente": "TANIA",
+    },
+    "ESPECIALIZACION_EN_DISENO_Y_DESARROLLO_DE_VIDEOJUEGOS": {
+        "escuela": "DISENO_Y_COMUNICACION",
+        "cliente": "TANIA",
+    },
+    "INGENIERIA_EN_LOGISTICA": {
+        "escuela": "ESCUELA_DE_INGENIERIA",
+        "cliente": "PRODUCTO",
+    },
+    # Lote RUTAS actual
+    "ESPECIALIZACION_EN_CONTRATACION_ESTATAL": {
+        "escuela": "ESCUELA_CIENCIAS_SOCIALES_JURIDICAS_Y_GOBIERNO",
+        "cliente": "TANIA",
+    },
+    "DIPLOMADO_EN_VALORACION_ECONOMICA_DE_RECURSOS_NATURALES": {
+        "escuela": "ESCUELA_CIENCIAS_SOCIALES_JURIDICAS_Y_GOBIERNO",
+        "cliente": "PRODUCTO",
+    },
+    "DIPLOMADO_EN_CASACION_LABORAL": {
+        "escuela": "ESCUELA_CIENCIAS_SOCIALES_JURIDICAS_Y_GOBIERNO",
+        "cliente": "PRODUCTO",
+    },
+    "DIPLOMADO_EN_SISTEMA_GENERAL_DE_SEGURIDAD_SOCIAL_EN_SALUD": {
+        "escuela": "ESCUELA_CIENCIAS_SOCIALES_JURIDICAS_Y_GOBIERNO",
+        "cliente": "PRODUCTO",
+    },
+    "DIPLOMADO_EN_PREVENCION_ACCION_Y_ASISTENCIA_HUMANITARIA": {
+        "escuela": "ESCUELA_CIENCIAS_SOCIALES_JURIDICAS_Y_GOBIERNO",
+        "cliente": "PRODUCTO",
+    },
+    "DIPLOMADO_EN_JUSTICIA_TRANSICIONAL_Y_DERECHOS_HUMANOS": {
+        "escuela": "ESCUELA_CIENCIAS_SOCIALES_JURIDICAS_Y_GOBIERNO",
+        "cliente": "PRODUCTO",
+    },
+    "DIPLOMADO_EN_GERENCIA_DE_DISENO_Y_PORTAFOLIO": {
+        "escuela": "ESCUELA_DE_DISENO_Y_COMUNICACION",
+        "cliente": "PRODUCTO",
+    },
+    "DIPLOMADO_EN_EDICION_Y_COMPOSICION_DIGITAL": {
+        "escuela": "ESCUELA_DE_DISENO_Y_COMUNICACION",
+        "cliente": "PRODUCTO",
+    },
+    "DIPLOMADO_EN_COMUNICACION_ORGANIZACIONAL": {
+        "escuela": "ESCUELA_DE_DISENO_Y_COMUNICACION",
+        "cliente": "PRODUCTO",
+    },
+    "QUIMICA_FARMACEUTICA": {
+        "escuela": "ESCUELA_SALUD_Y_BIENESTAR",
+        "cliente": "PRODUCTO",
+    },
+    "ADMINISTRACION_DE_EMPRESAS": {
+        "escuela": "ESCUELA_DE_TRANSFORMACION_EMPRESARIAL",
+        "cliente": "PRODUCTO",
+    },
+    "ADMINISTRACION_FINANCIERA_DIGITAL": {
+        "escuela": "ESCUELA_DE_TRANSFORMACION_EMPRESARIAL",
+        "cliente": "PRODUCTO",
+    },
+    "ESPECIALIZACION_EN_EXPERIENCIAS_GASTRONOMICAS": {
+        "escuela": "ESCUELA_DE_TRANSFORMACION_EMPRESARIAL",
+        "cliente": "TANIA",
+    },
+    "ESPECIALIZACION_EN_DERECHO_PENAL": {
+        "escuela": "ESCUELA_CIENCIAS_SOCIALES_JURIDICAS_Y_GOBIERNO",
+        "cliente": "TANIA",
+    },
+    "ESPECIALIZACION_EN_GERENCIA_PUBLICA": {
+        "escuela": "ESCUELA_TRANSFORMACION_EMPRESARIAL",
+        "cliente": "PRODUCTO",
+    },
+    "LMS_CORRECCIONES": {
+        "escuela": "",
+        "cliente": "PRODUCTO",
+    },
+}
+
+_ROMAN_SEMESTRE = {
+    "I": 1,
+    "II": 2,
+    "III": 3,
+    "IV": 4,
+    "V": 5,
+    "VI": 6,
+    "VII": 7,
+    "VIII": 8,
+    "IX": 9,
+    "X": 10,
+    "XI": 11,
+    "XII": 12,
+}
+
+
+def cargar_metadata_programas(*fuentes: Path) -> dict[str, dict[str, str]]:
+    meta: dict[str, dict[str, str]] = dict(METADATA_EXTRA)
+    for ruta in fuentes:
+        if not ruta.exists():
+            continue
+        with ruta.open(encoding="utf-8", newline="") as handle:
+            for row in csv.DictReader(handle):
+                programa = row.get("programa_nombre", "")
+                if not programa or programa in meta:
+                    continue
+                meta[programa] = {
+                    "escuela": row["escuela_nombre"],
+                    "cliente": row["cliente_nombre"],
+                }
+    return meta
+
+
+# En el Excel hay 3 clasificaciones. En GCP, cliente solo admite PRODUCTO/TANIA;
+# LMS_CORRECCIONES se guarda como raíz, no como cliente nuevo.
+_ALIASES_CORRECCIONES = {
+    "LMS_CORRECCIONES",
+    "LMS_CORRECCION",
+    "LMSCORRECIONES",
+    "LMSCORRECION",
+    "LMSCORRECIO",
+    "LMS_CORRECC",
+    "CORRECCIONES",
+    "CORRECCION",
+}
+
+
+def es_clasificacion_correcciones(texto: str) -> bool:
+    t = norm_text(texto)
+    if t in _ALIASES_CORRECCIONES:
+        return True
+    return t.startswith("LMS_CORRECC") or t.startswith("LMSCORREC")
+
+
+def normalizar_clasificacion(valor: object) -> dict[str, str] | None:
+    """
+    Traduce el valor de la columna cliente del Excel a cliente+raíz de GCP.
+    PRODUCTO/TANIA → raíz LMS_Carga.
+    LMS_correcciones (y alias) → cliente PRODUCTO + raíz LMS_CORRECCIONES.
+    """
+    texto = norm_text(valor)
+    if not texto:
+        return None
+    if es_clasificacion_correcciones(texto):
+        return {
+            "clasificacion": "LMS_CORRECCIONES",
+            "cliente": "PRODUCTO",
+            "raiz": "LMS_CORRECCIONES",
+        }
+    if texto == "TANIA":
+        return {"clasificacion": "TANIA", "cliente": "TANIA", "raiz": "LMS_Carga"}
+    if texto == "PRODUCTO":
+        return {"clasificacion": "PRODUCTO", "cliente": "PRODUCTO", "raiz": "LMS_Carga"}
+    return None
+
+
+def _dataframe_rutas(ruta: Path) -> pd.DataFrame:
+    if ruta.suffix.lower() == ".csv":
+        return pd.read_csv(ruta)
+    df = pd.read_excel(ruta, header=0)
+    cols = {str(c).strip().lower() for c in df.columns}
+    if "destino" in cols or "destino " in {c.strip() for c in cols}:
+        return df
+    crudo = pd.read_excel(ruta, header=None)
+    header_idx = None
+    for i, row in crudo.iterrows():
+        valores = {str(v).strip().lower() for v in row.tolist() if pd.notna(v)}
+        if "destino" in valores or "cliente" in valores:
+            header_idx = int(i)
+            break
+    if header_idx is None:
+        return df
+    df = pd.read_excel(ruta, header=header_idx)
+    return df
+
+
+def leer_rutas_excel(ruta: Path) -> list[tuple[str, str, dict[str, str] | None]]:
+    df = _dataframe_rutas(ruta)
+    cols = {str(c).strip().lower(): c for c in df.columns}
+    col_url = cols.get("destino") or cols.get("destino ")
+    col_clasif = (
+        cols.get("cliente")
+        or cols.get("tipo")
+        or cols.get("clasificacion")
+        or cols.get("clasificación")
+    )
+    reserved = {
+        "origen",
+        "destino",
+        "destino ",
+        "cliente",
+        "tipo",
+        "clasificacion",
+        "clasificación",
+        "programa_nombre",
+        "titulo",
+    }
+    col_label = cols.get("etiqueta") or cols.get("programa") or cols.get("unnamed: 1")
+    if not col_label or str(col_label).strip().lower() in reserved:
+        col_label = next(
+            (c for c in df.columns if str(c).strip().lower() not in reserved),
+            list(df.columns)[0],
+        )
+
+    if not col_url:
+        raise ValueError(f"No se encontró columna de destino en {ruta}")
+
+    rutas: list[tuple[str, str, dict[str, str] | None]] = []
+    for _, row in df.iterrows():
+        etiqueta = str(row[col_label]).strip()
+        url = str(row[col_url]).strip()
+        if not url or url.lower() == "nan":
+            continue
+        if etiqueta.lower() in {"nan", ""}:
+            etiqueta = url
+        clasif = None
+        if col_clasif:
+            crudo = row[col_clasif]
+            if pd.notna(crudo) and str(crudo).strip() and str(crudo).strip().lower() != "nan":
+                clasif = normalizar_clasificacion(crudo)
+                if clasif is None:
+                    raise ValueError(
+                        f"Clasificación inválida en fila '{etiqueta}': {crudo!r}. "
+                        "Usa TANIA, PRODUCTO o LMS_CORRECCIONES."
+                    )
+        rutas.append((etiqueta, url, clasif))
+    return rutas
+
+
+def limpiar_prefijo_numero(nombre: str) -> str:
+    return norm_text(re.sub(r"^\d+\.\s*", "", nombre.strip()))
+
+
+def _token_semestre_a_numero(token: str) -> str | None:
+    token = token.upper()
+    if token in _ROMAN_SEMESTRE:
+        return str(_ROMAN_SEMESTRE[token])
+    if token.isdigit():
+        return token
+    return None
+
+
+def extraer_semestre_bloque(bloque: str) -> str | None:
+    bloque_norm = norm_text(bloque)
+    if bloque_norm in {"PROPEDEUTICO", "PROP", "PRE", "PREPROPEDEUTICO"}:
+        return "PROPEDEUTICO"
+    m = re.match(r"^SEMESTRE[\s_]*([IVXLC]+|\d+)$", bloque_norm)
+    if m:
+        numero = _token_semestre_a_numero(m.group(1))
+        if numero is not None:
+            return numero
+    m = re.match(r"^(?:SEMESTRE\s*)?(\d+)$", bloque_norm)
+    if m:
+        return m.group(1)
+    if bloque_norm.isdigit():
+        return bloque_norm
+    return None
+
+
+def es_carpeta_escuela(nombre: str) -> bool:
+    return norm_text(nombre).startswith("ESCUELA_")
+
+
+def es_carpeta_correcciones(nombre: str) -> bool:
+    return norm_text(nombre) in {"LMS_CORRECCIONES", "LMS_CORRECCION"}
+
+
+def parsear_ruta_programa(
+    partes: list[str],
+    programa_hint: str,
+    meta_prog: dict[str, str],
+) -> dict[str, str] | None:
+    """
+    Estructuras soportadas bajo carpeta de programa (o escuela):
+    - programa / semestre / paquete / materia / [granulo] / archivo
+    - escuela / programa / semestre N / materia / [subcarpeta] / archivo
+    """
+    if len(partes) < 3:
+        return None
+
+    programa_norm = norm_text(programa_hint)
+    escuela = meta_prog.get("escuela", "")
+    cliente = meta_prog.get("cliente", "TANIA")
+    raiz_nombre = meta_prog.get("raiz") or "LMS_Carga"
+
+    # Detectar programa y escuela en la ruta
+    programa = programa_norm
+    idx = 0
+    if es_carpeta_correcciones(partes[0]):
+        if not meta_prog.get("raiz"):
+            raiz_nombre = "LMS_CORRECCIONES"
+        cliente = meta_prog.get("cliente", "PRODUCTO")
+        if len(partes) > 1 and es_carpeta_escuela(partes[1]):
+            escuela = norm_text(partes[1])
+            if len(partes) > 2:
+                programa = norm_text(partes[2])
+                idx = 3
+        elif len(partes) > 1:
+            programa = norm_text(partes[1])
+            idx = 2
+    elif es_carpeta_escuela(partes[0]):
+        escuela = norm_text(partes[0])
+        if len(partes) > 1:
+            programa = norm_text(partes[1])
+            idx = 2
+    elif norm_text(partes[0]) == programa_norm:
+        idx = 1
+    else:
+        for i, parte in enumerate(partes[:-1]):
+            pn = norm_text(parte)
+            if pn == programa_norm or pn.startswith("ESPECIALIZACION_") or pn.startswith("INGENIERIA_"):
+                programa = pn
+                idx = i + 1
+                break
+
+    rel = partes[idx:-1]
+    if not rel:
+        return None
+
+    semestre = "1"
+    paquete = "NOTEBOOK"
+    ridx = 0
+
+    if ridx < len(rel):
+        sem_bloque = extraer_semestre_bloque(rel[ridx])
+        if sem_bloque is not None:
+            semestre = sem_bloque
+            ridx += 1
+
+    if ridx < len(rel) and norm_text(rel[ridx]) in PAQUETES_VALIDOS_NORM:
+        paquete = norm_text(rel[ridx])
+        ridx += 1
+    elif programa.startswith("INGENIERIA_"):
+        paquete = "MODELO_NOTEBOOK"
+
+    if ridx >= len(rel):
+        return None
+
+    materia = limpiar_prefijo_numero(rel[ridx])
+    ridx += 1
+
+    granulo_carpeta = ""
+    for parte in rel[ridx:]:
+        if es_carpeta_granulo(parte):
+            granulo_carpeta = norm_text(parte)
+            break
+
+    return {
+        "raiz": raiz_nombre,
+        "destinatario": "MEN",
+        "periodo": "Q2",
+        "cliente": cliente,
+        "escuela": escuela,
+        "programa": programa,
+        "semestre": str(parse_semestre(semestre)),
+        "paquete": paquete,
+        "materia": materia,
+        "granulo_carpeta": granulo_carpeta,
+        "granulo_modo_alt": False,
+    }
+
+
+def escanear_carpeta_programa(
+    servicio,
+    folder_id: str,
+    meta_prog: dict[str, str],
+    ruta_prefix: list[str] | None = None,
+) -> list[dict]:
+    """
+    Recorre en anchura (BFS) la carpeta del programa.
+    Solo agrega archivos con código G (extraer_codigo). El resto se ignora para el CSV.
+    """
+    raiz = (
+        servicio.files()
+        .get(fileId=folder_id, fields="id,name", supportsAllDrives=True)
+        .execute()
+    )
+    programa = raiz.get("name", "")
+    print(f"  Programa: {programa}", flush=True)
+
+    resultados: list[dict] = []
+    ruta_inicial = [* (ruta_prefix or []), programa]
+    cola: deque[tuple[str, list[str]]] = deque([(folder_id, ruta_inicial)])
+
+    while cola:
+        actual_id, actual_ruta = cola.popleft()
+        try:
+            hijos = listar_hijos(servicio, actual_id)
+        except HttpError as err:
+            print(f"  Aviso: no se pudo leer carpeta ({err})", file=sys.stderr, flush=True)
+            continue
+
+        for hijo in hijos:
+            nombre = hijo.get("name", "")
+            if hijo.get("mimeType") == MIME_FOLDER:
+                cola.append((hijo["id"], [*actual_ruta, nombre]))
+                continue
+
+            codigo = extraer_codigo(nombre)
+            if not codigo:
+                continue
+
+            partes = [*actual_ruta, nombre]
+            meta = parsear_ruta_programa(partes, programa, meta_prog)
+            if not meta:
+                meta = parsear_ruta(partes)
+            if not meta:
+                continue
+
+            ext = obtener_extension(hijo)
+            if meta.get("granulo_carpeta"):
+                granulo_nombre = meta["granulo_carpeta"]
+            else:
+                granulo_nombre = extraer_granulo_nombre(
+                    nombre, codigo, meta["materia"], meta.get("granulo_carpeta", "")
+                )
+
+            resultados.append(
+                {
+                    **meta,
+                    "codigo": codigo,
+                    "granulo_nombre": granulo_nombre,
+                    "archivo_nombre": nombre,
+                    "archivo_nombre_original": nombre,
+                    "archivo_enlace": hijo.get("webViewLink", ""),
+                    "extension": ext,
+                }
+            )
+
+    return resultados
+
+
+def escanear_ruta_drive(
+    servicio,
+    folder_id: str,
+    meta_prog: dict[str, str],
+) -> list[dict]:
+    raiz = (
+        servicio.files()
+        .get(fileId=folder_id, fields="id,name", supportsAllDrives=True)
+        .execute()
+    )
+    nombre_raiz = raiz.get("name", "")
+
+    if not es_carpeta_correcciones(nombre_raiz):
+        return escanear_carpeta_programa(servicio, folder_id, meta_prog)
+
+    print(f"  Raíz correcciones: {nombre_raiz}", flush=True)
+    resultados: list[dict] = []
+    meta_base = {
+        **meta_prog,
+        "cliente": meta_prog.get("cliente", "PRODUCTO"),
+    }
+
+    for escuela in listar_hijos(servicio, folder_id):
+        if escuela.get("mimeType") != MIME_FOLDER or not es_carpeta_escuela(escuela.get("name", "")):
+            continue
+        escuela_nombre = norm_text(escuela["name"])
+        print(f"  Escuela: {escuela_nombre}", flush=True)
+        for programa in listar_hijos(servicio, escuela["id"]):
+            if programa.get("mimeType") != MIME_FOLDER:
+                continue
+            meta_local = {**meta_base, "escuela": escuela_nombre}
+            resultados.extend(
+                escanear_carpeta_programa(
+                    servicio,
+                    programa["id"],
+                    meta_local,
+                    ruta_prefix=["LMS_CORRECCIONES", escuela_nombre],
+                )
+            )
+
+    return resultados
+
+
+def generar(
+    excel: Path,
+    salida: Path,
+    referencia: Path | None = None,
+    solo_lectura_db: bool = True,
+) -> int:
+    """
+    Orquestación: lee Excel → por cada destino escanea Drive → arma filas CSV.
+    Devuelve 0 si ok, 1 si no hubo archivos G.
+    """
+    rutas = leer_rutas_excel(excel)
+    print(f"Rutas en Excel: {len(rutas)}", flush=True)
+
+    meta_programas = cargar_metadata_programas(
+        REF_DEFAULT,
+        BASE_DIR / "lms_base_final.csv",
+    )
+
+    servicio = build("drive", "v3", credentials=autenticar_drive(), cache_discovery=False)
+    registros: list[dict] = []
+
+    for etiqueta, url, clasif_excel in rutas:
+        print(f"\nEscaneando [{etiqueta}]...", flush=True)
+        folder_id = extraer_id_carpeta(url)
+        raiz = (
+            servicio.files()
+            .get(fileId=folder_id, fields="name", supportsAllDrives=True)
+            .execute()
+        )
+        programa = raiz["name"]
+        meta_prog = dict(
+            meta_programas.get(norm_text(programa), meta_programas.get(programa, {}))
+        )
+        if not meta_prog and programa.startswith("ESCUELA_"):
+            meta_prog = {"escuela": norm_text(programa), "cliente": "PRODUCTO"}
+        if not meta_prog and norm_text(programa).startswith("INGENIERIA_"):
+            meta_prog = {
+                "escuela": "ESCUELA_DE_INGENIERIA",
+                "cliente": "PRODUCTO",
+            }
+        if es_carpeta_correcciones(programa) and not clasif_excel:
+            meta_prog = {
+                **meta_prog,
+                "cliente": "PRODUCTO",
+                "raiz": "LMS_CORRECCIONES",
+            }
+        if clasif_excel:
+            meta_prog["cliente"] = clasif_excel["cliente"]
+            meta_prog["raiz"] = clasif_excel["raiz"]
+        if not meta_prog.get("cliente"):
+            print(
+                f"  Aviso: sin clasificación en Excel ni metadata para {programa}; se usará TANIA.",
+                flush=True,
+            )
+            meta_prog["cliente"] = "TANIA"
+        if not meta_prog.get("raiz"):
+            meta_prog["raiz"] = "LMS_Carga"
+        origen = "Excel" if clasif_excel else "metadata"
+        print(
+            f"  Clasificacion: {clasif_excel['clasificacion'] if clasif_excel else origen} "
+            f"-> cliente={meta_prog.get('cliente')} raiz={meta_prog.get('raiz')} ({origen}) "
+            f"escuela={meta_prog.get('escuela')}",
+            flush=True,
+        )
+        encontrados = escanear_ruta_drive(servicio, folder_id, meta_prog)
+        print(f"  -> {len(encontrados)} archivos G", flush=True)
+        registros.extend(encontrados)
+
+    print(f"\nTotal archivos G: {len(registros)}", flush=True)
+    if not registros:
+        print("No se encontraron archivos con código G.")
+        return 1
+
+    ref = ReferenciaGcp(referencia)
+    resolver = IdResolver(readonly=solo_lectura_db)
+    ahora = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    filas: list[dict[str, str]] = []
+    desde_ref = 0
+
+    for idx, reg in enumerate(registros, start=1):
+        if idx % 500 == 0 or idx == len(registros):
+            print(f"  Resolviendo IDs {idx}/{len(registros)}...", flush=True)
+        fila_ref = ref.buscar(reg["archivo_enlace"])
+        if fila_ref:
+            filas.append(fila_ref)
+            desde_ref += 1
+        else:
+            filas.append(resolver.construir_fila(reg, ahora))
+
+    resolver.close()
+
+    salida.parent.mkdir(parents=True, exist_ok=True)
+    with salida.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=COLUMNAS_SALIDA, quoting=csv.QUOTE_ALL)
+        writer.writeheader()
+        writer.writerows(filas)
+
+    print(f"\nBase generada: {salida}")
+    print(f"Total filas: {len(filas)}")
+    print(f"Desde referencia GCP: {desde_ref}")
+    print(f"Nuevas filas: {len(filas) - desde_ref}")
+    return 0
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Genera base LMS desde rutas en Excel.")
+    parser.add_argument(
+        "--excel",
+        default=str(EXCEL_DEFAULT),
+        help="Excel/CSV con destino y clasificación: TANIA, PRODUCTO o LMS_CORRECCIONES.",
+    )
+    parser.add_argument("-o", "--salida", default=str(SALIDA_DEFAULT))
+    parser.add_argument("--referencia", default=str(REF_DEFAULT))
+    parser.add_argument("--escribir-db", action="store_true")
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    try:
+        ref = Path(args.referencia) if args.referencia else None
+        return generar(
+            Path(args.excel),
+            Path(args.salida),
+            referencia=ref,
+            solo_lectura_db=not args.escribir_db,
+        )
+    except (ValueError, FileNotFoundError, HttpError) as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
