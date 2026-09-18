@@ -19,9 +19,7 @@ Uso tipico (desde la raiz del repo):
 
 from __future__ import annotations
 
-import argparse
-import subprocess
-import sys
+import argparse, subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent

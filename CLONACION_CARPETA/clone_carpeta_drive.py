@@ -15,85 +15,33 @@ No carga Cloud SQL (eso es LMS_Fabrica).
 
 Credenciales: credentials.json (OAuth) + token.json (sesión).
 """
-# ---------------------------------------------------------------------------
-# IMPORTS del bloque de clonación
-# ---------------------------------------------------------------------------
 
-# Anotaciones de tipos modernas (str | None, list[...]).
 from __future__ import annotations
 
-# Log a archivo clonacion.log + consola.
-import logging
-
-# Errores HTTP de bajo nivel (reintentos de red).
-import http.client
-
-# Leer/escribir token.json (JSON).
-import json
-
-# Aleatorio para esperas (backoff) ante fallos temporales.
-import random
-
-# Extraer IDs de URLs de Drive con expresiones regulares.
-import re
-
-# Errores de red (DNS, socket, SSL) para reintentar.
-import socket
-import ssl
-import sys
-import time
-
-# Contar nombres (duplicados) y mapas con valor por defecto.
+import argparse, http.client, json, logging, random, re, socket, ssl, sys, time
 from collections import Counter, defaultdict
-
-# Estructura simple para una fila del Excel (etiqueta + ids).
 from dataclasses import dataclass
-
-# Rutas de archivos independientes del SO.
 from pathlib import Path
 
-# Si el refresh del token falla, hay que volver a loguear.
 from google.auth.exceptions import RefreshError
-
-# Renovar token vencido.
 from google.auth.transport.requests import Request
-
-# Credenciales OAuth de usuario.
 from google.oauth2.credentials import Credentials
-
-# Login de aplicación de escritorio (credentials.json).
 from google_auth_oauthlib.flow import InstalledAppFlow
-
-# Cliente API Drive.
 from googleapiclient.discovery import build
-
-# Errores HTTP de la API de Google.
 from googleapiclient.errors import HttpError
-
-# Argumentos de línea de comandos (--excel).
-import argparse
-
-# Leer el Excel RUTAS.xlsx.
 from openpyxl import load_workbook
 
-# Pasos 3–5: se importan aquí porque main() los encadena al final.
-#   3) Inventario Excel local
-#   4) Publicar a Google Sheets
-#   5) Enviar correo Gmail
 from reporte_inventario_clon import generar_reporte_excel
 from notificar_clonacion import cargar_destinatarios, enviar_aviso_clonacion
 from publicar_inventario_sheets import publicar_xlsx_en_sheets
 
-# Resolver RUTAS.xlsx sin rutas de usuario fijas
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 from rutas_excel import resolver_rutas_excel  # noqa: E402
 
-# Patrón para sacar el ID de una URL .../folders/ID
 _DRIVE_FOLDER_RE = re.compile(r"/folders/([a-zA-Z0-9_-]+)")
 
-# Permisos: Drive (clonar), Sheets (inventario), Gmail (aviso).
 SCOPES = [
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/spreadsheets",

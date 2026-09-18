@@ -5,8 +5,7 @@ Usar vía: from lms_lib.constantes import CLIENTES_VALIDOS, EXTENSION_MAP, ...
 
 from __future__ import annotations
 
-import os
-import re
+import os, re
 from pathlib import Path
 
 from dotenv import load_dotenv

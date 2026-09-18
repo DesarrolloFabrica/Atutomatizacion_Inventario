@@ -15,10 +15,7 @@ Siguiente script: cargar_base_gcp.py
 
 from __future__ import annotations
 
-import argparse
-import csv
-import re
-import sys
+import argparse, csv, re, sys
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path

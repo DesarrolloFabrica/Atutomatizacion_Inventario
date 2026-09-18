@@ -9,12 +9,7 @@ No versionar: credenciales.json, token.json, .env.
 
 from __future__ import annotations
 
-import argparse
-import csv
-import os
-import re
-import sys
-import unicodedata
+import argparse, csv, os, re, sys, unicodedata
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path

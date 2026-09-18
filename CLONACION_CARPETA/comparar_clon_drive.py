@@ -11,14 +11,7 @@ Uso:
 
 from __future__ import annotations
 
-import argparse
-import http.client
-import json
-import re
-import socket
-import ssl
-import sys
-import time
+import argparse, http.client, json, re, socket, ssl, sys, time
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse

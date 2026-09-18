@@ -4,20 +4,13 @@ CAMBIAR_FORMATO — convertir_jpg_a_png.py
 JPG/JPEG → PNG en una carpeta de Drive (y subcarpetas).
 El JPG original va a la papelera. El PNG queda en el mismo lugar.
 
-No usa Excel. No manda correo. No toca GCP.
-
 Uso:
   python convertir_jpg_a_png.py --carpeta "https://drive.google.com/drive/folders/<ID_CARPETA>"
 """
 
 from __future__ import annotations
 
-import argparse
-import io
-import os
-import re
-import shutil
-import tempfile
+import argparse, io, os, re, shutil, tempfile
 from urllib.parse import parse_qs, urlparse
 
 from google.auth.transport.requests import Request
