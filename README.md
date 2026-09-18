@@ -4,46 +4,41 @@ Herramientas en Python para fabrica de contenido (CUN):
 preparan material en Google Drive, lo clonan con control de calidad
 y lo registran en Cloud SQL (planner_db).
 
-Este repo NO incluye secretos. Cada persona configura OAuth y `.env` en local.
+Este repo **no** incluye secretos. Cada persona configura OAuth y `.env` en local.
+
+
+## Primera vez en un PC nuevo
+
+1. Instalar Python 3.10+ y las dependencias de cada carpeta (`pip install -r requirements.txt`).
+2. Pedir al equipo (no están en Git): `credentials.json` / `credenciales.json` y datos del `.env`.
+3. Copiar `.env.example` → `.env` y completar correos (y DB si vas a cargar GCP).
+4. Colocar el JSON de Google en la carpeta del bloque que uses; al autorizar se crea `token.json`.
+5. Tener el Excel `RUTAS.xlsx` (ver `DICCIONARIO_DATOS_EXCEL.md`).
+
+Guía completa: `DOCUMENTACION_PROCESO.md`.  
+Detalle por bloque: README dentro de `CAMBIAR_FORMATO/`, `CLONACION_CARPETA/`, `LMS_Fabrica/`.
 
 
 ## Capas del proyecto
 
-El flujo tiene tres bloques (capas operativas):
-
 - `CAMBIAR_FORMATO/`: convierte JPG/JPEG a PNG en Drive (**obligatorio** en el flujo diario).
-- `CLONACION_CARPETA/`: clona origen -> destino, inventaria, publica Google Sheet
-  y envia correo Gmail con el link del inventario.
-- `LMS_Fabrica/`: escanea el destino, genera CSV y carga a Cloud SQL;
-  al final envia correo Gmail con resumen + query SQL.
-
-Documentacion extra por carpeta y listado de archivos:
-
-- `DOCUMENTACION_PROCESO.md` — workflow completo + paso a paso
-- `DICCIONARIO_DATOS_EXCEL.md` — columnas de `RUTAS.xlsx`
-- `CHECKLIST_ENTREGA.md` — validacion al cerrar el lote
-- `CAMBIAR_FORMATO/README.md`
-- `CLONACION_CARPETA/README.md`
-- `LMS_Fabrica/README.md`
-- `ARCHIVOS.md`
+- `CLONACION_CARPETA/`: clona origen → destino, genera inventario (reporte), Sheet y correo 1.
+- `LMS_Fabrica/`: escanea el destino, genera CSV, carga Cloud SQL y correo 2.
 
 
 ## Flujo general
 
-1. Convertir JPG a PNG en Drive (indicar la carpeta con `--carpeta-formato`).
-2. Leer `RUTAS.xlsx` y clonar carpeta origen -> destino.
-3. Generar inventario (Excel local + Google Sheet) y enviar **correo 1**.
-4. Escanear solo el **destino**, generar CSV intermedio.
-5. Cargar CSV a Cloud SQL (`fabrica_pruebas`) y enviar **correo 2**.
-
-El inventario va **después** del clon (compara origen vs destino).
+1. Convertir JPG a PNG (indicar carpeta con `--carpeta-formato`).
+2. Leer `RUTAS.xlsx` y clonar origen → destino.
+3. Inventario (reporte Excel + Google Sheet) y **correo 1**.
+4. Escanear el **destino**, generar CSV.
+5. Cargar Cloud SQL (`fabrica_pruebas`) y **correo 2**.
 
 ```powershell
-python run_flujo.py --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"
+python run_flujo.py --excel "C:\ruta\RUTAS.xlsx" --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"
 ```
 
-Opciones: `--excel RUTA`, `--sin-formato`, `--sin-clon`, `--sin-gcp`, `--sin-correo`.
-Detalle en `DOCUMENTACION_PROCESO.md`.
+Opciones: `--sin-formato`, `--sin-clon`, `--sin-gcp`, `--sin-correo`.
 
 
 ## Estructura actual
@@ -209,7 +204,7 @@ En nube o equipo compartido: secretos fuera del repo (nunca versionar
 ## Ejecutar flujo continuo (recomendado)
 
 ```powershell
-python run_flujo.py --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"
+python run_flujo.py --excel "C:\ruta\RUTAS.xlsx" --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"
 ```
 
 Encadena formato → clonación/inventario → CSV → Cloud SQL.
@@ -224,6 +219,7 @@ python convertir_jpg_a_png.py --carpeta "https://drive.google.com/drive/folders/
 ```
 
 La carpeta de Drive se indica en cada corrida con `--carpeta` (enlace o ID).
+Ver `CAMBIAR_FORMATO/README.md` (incluye sección “Primera vez”).
 
 
 ## Ejecutar clonacion + inventario + correo
@@ -231,11 +227,11 @@ La carpeta de Drive se indica en cada corrida con `--carpeta` (enlace o ID).
 ```powershell
 cd CLONACION_CARPETA
 pip install -r requirements.txt
-python clone_carpeta_drive.py
+python clone_carpeta_drive.py --excel "C:\ruta\RUTAS.xlsx"
 ```
 
 Ese unico comando encadena inventario, Google Sheets y el correo 1.
-La ruta de `RUTAS.xlsx` se indica con `--excel` o la variable `RUTAS_XLSX`.
+Ver `CLONACION_CARPETA/README.md`.
 
 
 ## Ejecutar carga a GCP

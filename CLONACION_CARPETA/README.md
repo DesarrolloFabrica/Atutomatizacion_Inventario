@@ -1,111 +1,94 @@
 # CLONACION_CARPETA
 
-Clona carpetas de Google Drive segun un Excel de rutas,
-genera inventario, lo publica en Google Sheets
-y envia un correo de aviso.
+Clona carpetas de Google Drive según un Excel de rutas, genera un **reporte de
+inventario**, lo publica en Google Sheets y envía el **correo 1**.
 
-Ver tambien:
-  ../README.md
-  ../ARCHIVOS.md
-  ../DOCUMENTACION_PROCESO.md
-  ../DICCIONARIO_DATOS_EXCEL.md
-  ../CHECKLIST_ENTREGA.md
+## Primera vez (configuración)
 
+1. Instalar dependencias:
 
---------------------------------------------------
-FLUJO OPERATIVO (USO NORMAL)
---------------------------------------------------
+```powershell
+cd CLONACION_CARPETA
+pip install -r requirements.txt
+```
 
-Solo lanzas UN script. Al terminar, encadena lo demas:
+2. Copiar `.env.example` → `.env` y completar al menos:
+   - `CORREOS_AVISO` — destinatarios del correo (separados por coma)
 
-  python clone_carpeta_drive.py
-          |
-          |-- 1. Lee RUTAS.xlsx
-          |-- 2. Clona origen -> destino (reanudable)
-          |-- 3. reporte_inventario_clon.py      -> Excel local
-          |-- 4. publicar_inventario_sheets.py   -> Google Sheet
-          |-- 5. notificar_clonacion.py          -> correo Gmail
+3. Colocar en esta carpeta (no van a Git):
+   - `credentials.json` — OAuth Desktop
+   - `token.json` — se crea al autorizar; si falta o caduca:
 
+```powershell
+python renovar_token.py
+```
 
---------------------------------------------------
-CORREO AL CLONAR
---------------------------------------------------
+4. Tener el Excel `RUTAS.xlsx` con columnas:
+   `cliente | etiqueta | origen | destino`
+   (detalle en `../DICCIONARIO_DATOS_EXCEL.md`)
 
-Si forma parte del diseno.
-Destinatarios: CORREOS_AVISO en .env
-Contenido: estado + enlace a la Google Sheet
-Si Sheets falla: adjunta el Excel
+## Cómo indicar el Excel
 
+No hay ruta de usuario fija en el código. Opciones:
 
---------------------------------------------------
-SCRIPTS
---------------------------------------------------
+```powershell
+python clone_carpeta_drive.py --excel "C:\ruta\RUTAS.xlsx"
+```
 
-  clone_carpeta_drive.py         ENTRADA (clona + dispara 3-5)
-  reporte_inventario_clon.py     Inventario Excel
-  publicar_inventario_sheets.py  Sheet fija + compartir
-  notificar_clonacion.py         Correo Gmail
-  renovar_token.py               Regenera token.json
-  comparar_clon_drive.py         Diagnostico (NO es flujo diario)
+O variable de entorno:
 
+```powershell
+$env:RUTAS_XLSX="C:\ruta\RUTAS.xlsx"
+python clone_carpeta_drive.py
+```
 
---------------------------------------------------
-EXCEL DE RUTAS
---------------------------------------------------
+También se busca `RUTAS.xlsx` en la raíz del repo o en la carpeta actual.
 
-Ruta por defecto en el codigo (ajustar si cambias de PC):
+## Uso normal (un solo comando)
 
-Indicar el Excel con `--excel` o la variable `RUTAS_XLSX`.
-También se busca `RUTAS.xlsx` en la raíz del repo.
+```powershell
+cd CLONACION_CARPETA
+python clone_carpeta_drive.py --excel "C:\ruta\RUTAS.xlsx"
+```
 
-Formatos aceptados:
-  etiqueta | origen | destino
-  cliente | etiqueta | origen | destino
+Ese comando hace, en orden:
 
+1. Lee el Excel  
+2. Clona origen → destino en Drive  
+3. Genera el inventario local: `reporte_inventario_clon.xlsx`  
+4. Publica / actualiza la Google Sheet  
+5. Envía el correo 1 con el link de la Sheet  
 
---------------------------------------------------
-CONFIGURACION
---------------------------------------------------
+## Qué es el inventario
 
-  1. Copia .env.example -> .env y define CORREOS_AVISO
-  2. Coloca credentials.json (OAuth Desktop)
-  3. Si falta token o permiso Gmail/Sheets:
-       python renovar_token.py
-  4. pip install -r requirements.txt
+Es un **reporte de control** (no es material del curso):
 
+- Compara origen vs destino (conteos, Moodle, faltantes, etc.)
+- Sale en Excel local y en Google Sheet
+- El correo 1 solo lleva el link de esa Sheet
 
---------------------------------------------------
-COMANDO PRINCIPAL
---------------------------------------------------
+## Scripts
 
-  cd CLONACION_CARPETA
-  python clone_carpeta_drive.py
+| Script | Rol |
+|---|---|
+| `clone_carpeta_drive.py` | Entrada diaria (clona + encadena el resto) |
+| `reporte_inventario_clon.py` | Arma el Excel de inventario |
+| `publicar_inventario_sheets.py` | Publica en Google Sheets |
+| `notificar_clonacion.py` | Correo 1 |
+| `renovar_token.py` | Regenera `token.json` |
+| `comparar_clon_drive.py` | Diagnóstico manual (NO diario) |
 
+Diagnóstico manual (si lo necesitas):
 
---------------------------------------------------
-INVENTARIO
---------------------------------------------------
+```powershell
+python comparar_clon_drive.py --origen "ENLACE_O_ID" --destino "ENLACE_O_ID"
+```
 
-Es un REPORTE (Excel local = Google Sheet), no una carpeta de materiales.
-Cuenta por tipo de carpeta; Moodle 01_... SI cuenta.
-No requiere prefijo G.
+## Relación con el resto del flujo
 
+Este bloque **no** carga Cloud SQL.  
+Siguiente bloque: `LMS_Fabrica`.
 
---------------------------------------------------
-RELACION CON GCP
---------------------------------------------------
+## No subir a Git
 
-Este bloque NO carga Cloud SQL.
-Siguiente bloque: LMS_Fabrica
-
-
---------------------------------------------------
-NO SUBIR A GIT
---------------------------------------------------
-
-  credentials.json
-  token.json
-  .env
-  clonacion.log
-  hoja_inventario_id.txt
-  reportes generados
+`credentials.json`, `token.json`, `.env`, `clonacion.log`, reportes generados.
