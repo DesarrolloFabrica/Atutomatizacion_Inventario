@@ -5,7 +5,8 @@ Archivo de entrada del flujo. **Una fila = un lote** a procesar.
 Ubicación habitual (ajustar si cambias de PC):
 
 ```text
-C:\Users\angie_vera\Downloads\RUTAS.xlsx
+Ruta del Excel: pásala con `--excel` o define `RUTAS_XLSX`.
+También se busca `RUTAS.xlsx` en la raíz del repo o en la carpeta actual.
 ```
 
 La ruta exacta también está fijada en `CLONACION_CARPETA/clone_carpeta_drive.py`.

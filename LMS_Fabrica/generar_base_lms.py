@@ -34,7 +34,6 @@ except ImportError:
 
 from lms_lib.constantes import (
     BASE_DIR,
-    CARPETA_DEFAULT,
     CLIENTES_VALIDOS,
     COLUMNAS_SALIDA,
     CREDENTIALS_PATH,
@@ -700,11 +699,12 @@ def generar(
 
 def parse_args() -> argparse.Namespace:
     """Define CLI: carpeta Drive, CSV de salida, CSV referencia y flag --escribir-db."""
-    parser = argparse.ArgumentParser(description="Genera base LMS desnormalizada desde Google Drive.")
+    parser = argparse.ArgumentParser(
+        description="Genera base LMS desnormalizada desde Google Drive."
+    )
     parser.add_argument(
         "carpeta",
-        nargs="?",
-        default=f"https://drive.google.com/drive/folders/{CARPETA_DEFAULT}",
+        help="Enlace o ID de la carpeta de Google Drive a escanear.",
     )
     parser.add_argument(
         "-o",
@@ -713,8 +713,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--referencia",
-        default=r"c:\Users\sara_martinezl\Downloads\studio_results_20260618_1055.csv",
-        help="CSV exportado de GCP para reutilizar IDs existentes por enlace.",
+        default="",
+        help="CSV exportado de GCP para reutilizar IDs (opcional).",
     )
     parser.add_argument(
         "--escribir-db",

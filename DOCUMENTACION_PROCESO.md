@@ -22,7 +22,7 @@ y **registra** archivos del destino en Cloud SQL (`planner_db`), con un segundo 
               |
               v
 2) CLONACION_CARPETA
-    Lee: C:\Users\angie_vera\Downloads\RUTAS.xlsx
+    Lee: RUTAS.xlsx (indicar con --excel o variable RUTAS_XLSX)
          (columnas: cliente | etiqueta | origen | destino)
       -> clonar origen -> destino (en Drive)
       -> inventario Excel local:

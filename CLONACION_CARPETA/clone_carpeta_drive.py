@@ -84,10 +84,12 @@ from reporte_inventario_clon import generar_reporte_excel
 from notificar_clonacion import cargar_destinatarios, enviar_aviso_clonacion
 from publicar_inventario_sheets import publicar_xlsx_en_sheets
 
-# Ajustar si el Excel vive en otra ruta / otro PC.
-RUTAS_XLSX = Path(
-    r"C:\Users\angie_vera\Downloads\RUTAS.xlsx"
-)
+# Resolver RUTAS.xlsx sin rutas de usuario fijas
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+from rutas_excel import resolver_rutas_excel  # noqa: E402
+
 # Patrón para sacar el ID de una URL .../folders/ID
 _DRIVE_FOLDER_RE = re.compile(r"/folders/([a-zA-Z0-9_-]+)")
 
@@ -758,12 +760,17 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--excel",
         type=Path,
-        default=RUTAS_XLSX,
-        help=f"Ruta a RUTAS.xlsx (default: {RUTAS_XLSX})",
+        default=None,
+        help="Ruta a RUTAS.xlsx (también variable de entorno RUTAS_XLSX).",
     )
     args = parser.parse_args(argv)
-    excel_rutas = args.excel.resolve()
-
+    try:
+        excel_rutas = resolver_rutas_excel(
+            args.excel, _REPO_ROOT, BASE, BASE.parent
+        )
+    except FileNotFoundError as err:
+        print(str(err), file=sys.stderr)
+        sys.exit(1)
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",

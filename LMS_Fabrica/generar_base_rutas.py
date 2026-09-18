@@ -50,7 +50,7 @@ EXCEL_DEFAULT = BASE_DIR / "RUTAS.xlsx"
 if not EXCEL_DEFAULT.exists():
     EXCEL_DEFAULT = BASE_DIR / "RUTAS.csv"
 SALIDA_DEFAULT = BASE_DIR / "lms_base_rutas.csv"
-# CSV de referencia opcional (IDs históricos). Vacío = no usar. Origen/destino salen del Excel.
+# CSV de referencia opcional junto al script (si existe). Origen/destino salen del Excel.
 REF_DEFAULT = BASE_DIR / "studio_results_referencia.csv"
 
 # Cliente y escuela salen del Excel y de la estructura de carpetas en Drive.

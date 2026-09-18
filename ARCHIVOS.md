@@ -12,6 +12,7 @@ RAIZ
   DICCIONARIO_DATOS_EXCEL.md -> columnas de RUTAS.xlsx
   CHECKLIST_ENTREGA.md       -> validacion al cerrar el lote
   run_flujo.py               -> orquestador (formato -> clon -> CSV -> GCP)
+  rutas_excel.py             -> localiza RUTAS.xlsx (--excel o RUTAS_XLSX)
   ARCHIVOS.md                -> este listado
   .gitignore                 -> evita subir secretos y basura de corridas
   .env.example               -> plantilla CORREOS_AVISO + DB_* (copiar a .env)

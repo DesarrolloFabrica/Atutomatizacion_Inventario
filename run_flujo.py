@@ -28,9 +28,12 @@ ROOT = Path(__file__).resolve().parent
 DIR_FORMATO = ROOT / "CAMBIAR_FORMATO"
 DIR_CLON = ROOT / "CLONACION_CARPETA"
 DIR_LMS = ROOT / "LMS_Fabrica"
-
-RUTAS_DEFAULT = Path(r"C:\Users\angie_vera\Downloads\RUTAS.xlsx")
 CSV_DEFAULT = DIR_LMS / "lms_base_rutas.csv"
+
+# Para importar resolver_rutas_excel desde la raíz del repo
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from rutas_excel import resolver_rutas_excel  # noqa: E402
 
 
 def correr_paso(nombre: str, comando: list[str], cwd: Path) -> None:
@@ -54,8 +57,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--excel",
         type=Path,
-        default=RUTAS_DEFAULT,
-        help=f"RUTAS.xlsx (default: {RUTAS_DEFAULT})",
+        default=None,
+        help="Ruta a RUTAS.xlsx (también se puede usar la variable RUTAS_XLSX).",
     )
     parser.add_argument(
         "--csv",
@@ -106,13 +109,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    excel = args.excel.resolve()
     csv_out = args.csv.resolve()
     py = sys.executable
 
-    if not excel.is_file() and not args.sin_clon:
-        print(f"No se encontro el Excel: {excel}", file=sys.stderr)
-        return 1
+    try:
+        excel = resolver_rutas_excel(args.excel, ROOT, DIR_CLON, DIR_LMS)
+    except FileNotFoundError as err:
+        if not args.sin_clon or not args.sin_gcp:
+            print(str(err), file=sys.stderr)
+            return 1
+        excel = Path("RUTAS.xlsx")
 
     print("Flujo continuo Automatizacion Inventario", flush=True)
     print(f"  Excel : {excel}", flush=True)

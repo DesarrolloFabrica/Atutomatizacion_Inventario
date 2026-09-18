@@ -51,6 +51,7 @@ Detalle en `DOCUMENTACION_PROCESO.md`.
 ```text
 ./
 ├── run_flujo.py                        # orquestador del flujo diario
+├── rutas_excel.py                      # localiza RUTAS.xlsx sin rutas fijas
 ├── CAMBIAR_FORMATO/
 │   ├── convertir_jpg_a_png.py
 │   ├── codigo.js
@@ -234,7 +235,7 @@ python clone_carpeta_drive.py
 ```
 
 Ese unico comando encadena inventario, Google Sheets y el correo 1.
-La ruta de `RUTAS.xlsx` esta fija en el codigo; cambiala si usas otro PC.
+La ruta de `RUTAS.xlsx` se indica con `--excel` o la variable `RUTAS_XLSX`.
 
 
 ## Ejecutar carga a GCP

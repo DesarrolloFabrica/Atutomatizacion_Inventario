@@ -13,9 +13,9 @@ En cada ejecución se indica **qué carpeta de Drive** se va a procesar, con
 
 Ejemplo de enlace:
 
-`https://drive.google.com/drive/folders/1MwOPrhc-BO2ZXnF-guC2pRcU9LER_Qqa`
+`https://drive.google.com/drive/folders/TU_ID_DE_CARPETA`
 
-Ahí el ID es: `1MwOPrhc-BO2ZXnF-guC2pRcU9LER_Qqa`
+Ahí el ID es la parte final: `TU_ID_DE_CARPETA`
 
 ## Uso
 

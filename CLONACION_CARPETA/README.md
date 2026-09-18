@@ -55,7 +55,8 @@ EXCEL DE RUTAS
 
 Ruta por defecto en el codigo (ajustar si cambias de PC):
 
-  C:\Users\angie_vera\Downloads\RUTAS.xlsx
+Indicar el Excel con `--excel` o la variable `RUTAS_XLSX`.
+También se busca `RUTAS.xlsx` en la raíz del repo.
 
 Formatos aceptados:
   etiqueta | origen | destino

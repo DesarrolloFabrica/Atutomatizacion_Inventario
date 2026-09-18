@@ -1,68 +1,33 @@
 """
 CLONACION_CARPETA — comparar_clon_drive.py
 -----------------------------------------
-Herramienta de DIAGNÓSTICO (uso manual).
+Herramienta de diagnóstico (uso manual, no es el flujo diario).
 
-Qué hace: compara dos IDs fijos de Drive (origen vs clon) y escribe un
-reporte de texto con diferencias de carpetas/archivos.
+Compara origen vs destino en Drive y escribe un reporte de texto.
 
-Qué NO es:
-  - No es el paso diario del flujo.
-  - No lo llama clone_carpeta_drive.py.
-  - El inventario “oficial” del flujo es reporte_inventario_clon + Google Sheets.
-
-Cuándo usarlo: si sospechas que el clon quedó mal y quieres un cotejo extra
-ruta por ruta, aparte del inventario automático.
-
-Antes de correr: actualizar CARPETA_ORIGEN y CARPETA_DESTINO con los IDs reales.
-Requiere token.json (no se sube a Git).
+Uso:
+  python comparar_clon_drive.py --origen <enlace_o_id> --destino <enlace_o_id>
 """
 
-# ---------------------------------------------------------------------------
-# IMPORTS
-# ---------------------------------------------------------------------------
-
-# Tipos modernos (str | None, etc.).
 from __future__ import annotations
 
-# Errores HTTP de bajo nivel (para reintentar).
+import argparse
 import http.client
-
-# Leer token.json (sesión OAuth guardada).
 import json
-
-# (reservado / usado en otras partes del módulo si hay espera aleatoria).
-import random
-
-# Errores de red / SSL al hablar con la API.
+import re
 import socket
 import ssl
 import sys
 import time
-
-# Estructuras simples para totales y líneas del reporte.
 from dataclasses import dataclass, field
-
-# Ruta del token y del archivo de salida.
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
-# Renovar token si expiró.
 from google.auth.transport.requests import Request
-
-# Credenciales de usuario Google.
 from google.oauth2.credentials import Credentials
-
-# Cliente API Drive.
 from googleapiclient.discovery import build
-
-# Errores HTTP de Google (429, 500, etc.).
 from googleapiclient.errors import HttpError
 
-# --- IDs fijos de la ÚLTIMA corrida de prueba (cambiarlos según el lote) ---
-CARPETA_ORIGEN = "1Q3EHuRPUvAdIGQCFkZuHABLZvT9UtDBq"
-CARPETA_DESTINO = "1H9RM9UzUt7ISi398dyjVxyEM7T1yfMiC"
-
-# Permisos mínimos para leer Drive (aquí no se envía correo).
 SCOPES = [
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/spreadsheets",
@@ -71,6 +36,25 @@ MIME_FOLDER = "application/vnd.google-apps.folder"
 BASE = Path(__file__).resolve().parent
 TOKEN_PATH = BASE / "token.json"
 SALIDA = BASE / "reporte_comparacion_clon.txt"
+DRIVE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def extraer_id_carpeta(entrada: str) -> str:
+    texto = entrada.strip().strip('"')
+    parsed = urlparse(texto)
+    if parsed.scheme and parsed.netloc:
+        partes = [p for p in parsed.path.split("/") if p]
+        if "folders" in partes:
+            idx = partes.index("folders") + 1
+            if idx < len(partes) and DRIVE_ID_PATTERN.fullmatch(partes[idx]):
+                return partes[idx]
+        query_id = parse_qs(parsed.query).get("id", [""])[0]
+        if query_id and DRIVE_ID_PATTERN.fullmatch(query_id):
+            return query_id
+        raise ValueError(f"No se pudo leer el ID de carpeta desde: {entrada}")
+    if DRIVE_ID_PATTERN.fullmatch(texto):
+        return texto
+    raise ValueError(f"Valor no válido (enlace o ID de carpeta Drive): {entrada}")
 
 
 def cargar_credenciales() -> Credentials:
@@ -327,14 +311,30 @@ def contar_todo(svc, root_id: str) -> tuple[int, int]:
     return carpetas, archivos
 
 
-def main() -> None:
-    """
-    Punto de entrada manual:
-      1) Exige token.json
-      2) Lee origen/destino (IDs fijos arriba)
-      3) Compara árboles
-      4) Imprime y guarda reporte_comparacion_clon.txt
-    """
+def main(argv: list[str] | None = None) -> None:
+    """Compara origen vs destino indicados por argumento."""
+    parser = argparse.ArgumentParser(
+        description="Diagnóstico: compara dos carpetas Drive (origen vs destino)."
+    )
+    parser.add_argument(
+        "--origen",
+        required=True,
+        help="Enlace o ID de la carpeta origen.",
+    )
+    parser.add_argument(
+        "--destino",
+        required=True,
+        help="Enlace o ID de la carpeta destino (clon).",
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        id_origen = extraer_id_carpeta(args.origen)
+        id_destino = extraer_id_carpeta(args.destino)
+    except ValueError as err:
+        print(f"Error: {err}", file=sys.stderr)
+        sys.exit(1)
+
     if not TOKEN_PATH.is_file():
         print("Falta token.json", file=sys.stderr)
         sys.exit(1)
@@ -350,7 +350,7 @@ def main() -> None:
 
     m_o = ejecutar(
         svc.files().get(
-            fileId=CARPETA_ORIGEN,
+            fileId=id_origen,
             fields="id, name, mimeType",
             supportsAllDrives=True,
         )
@@ -362,7 +362,7 @@ def main() -> None:
 
     m_c = ejecutar(
         svc.files().get(
-            fileId=CARPETA_DESTINO,
+            fileId=id_destino,
             fields="id, name, mimeType",
             supportsAllDrives=True,
         )
@@ -370,23 +370,23 @@ def main() -> None:
     if m_c.get("mimeType") != MIME_FOLDER:
         print("Destino no es carpeta", file=sys.stderr)
         sys.exit(1)
-    id_clon = CARPETA_DESTINO
+    id_clon = id_destino
 
     lineas2: list[LineaDiferencia] = []
     to2_o = TotalesAcumulados()
     to2_c = TotalesAcumulados()
 
     ok_arbol = comparar(
-        svc, CARPETA_ORIGEN, id_clon, raiz_nombre, lineas2, to2_o, to2_c
+        svc, id_origen, id_clon, raiz_nombre, lineas2, to2_o, to2_c
     )
 
-    car_tot_o, ar_tot_o = contar_todo(svc, CARPETA_ORIGEN)
+    car_tot_o, ar_tot_o = contar_todo(svc, id_origen)
     car_tot_c, ar_tot_c = contar_todo(svc, id_clon)
 
     out: list[str] = []
     out.append("=== Comparación clon (google Drive) ===\n")
-    out.append(f"Origen (ID): {CARPETA_ORIGEN}")
-    out.append(f"Clon destino (ID): {CARPETA_DESTINO}  ->  \"{m_c['name']}\"\n")
+    out.append(f"Origen (ID): {id_origen}")
+    out.append(f"Clon destino (ID): {id_destino}  ->  \"{m_c['name']}\"\n")
     out.append("Por ruta: subcarpetas y archivos DIRECTOS en esa carpeta.\n")
     out.append("  [O] = origen, [C] = clon. [OK] = mismos nombres de items.\n")
     out.append("-" * 80)
