@@ -7,26 +7,14 @@ Comparte la hoja con los correos de CORREOS_AVISO.
 Lo llama clone_carpeta_drive.py; el link resultante va en el correo de clonación.
 """
 
-# ---------------------------------------------------------------------------
-# IMPORTS
-# ---------------------------------------------------------------------------
-
 from __future__ import annotations
 
-# Logs de permisos / avisos.
 import logging
-
-# Ruta del Excel y del archivo hoja_inventario_id.txt.
 from pathlib import Path
 
-# Credenciales OAuth del clon.
 from google.oauth2.credentials import Credentials
-
-# APIs Sheets (escribir) y Drive (compartir).
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-
-# Leer el Excel local hoja por hoja.
 from openpyxl import load_workbook
 
 logger = logging.getLogger(__name__)

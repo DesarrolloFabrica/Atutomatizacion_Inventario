@@ -10,43 +10,18 @@ Destinatarios: CORREOS_AVISO en .env.
 Lo llama clone_carpeta_drive.py al final de main(); no hace falta correrlo solo.
 """
 
-# ---------------------------------------------------------------------------
-# IMPORTS
-# ---------------------------------------------------------------------------
-
 from __future__ import annotations
 
-# Escapa texto para HTML seguro en el correo.
-import html
-
-# Codifica el mensaje para la API de Gmail.
-import base64
-
-# Logs de envío / avisos.
-import logging
-
-# Lee CORREOS_AVISO del entorno.
-import os
-
-# Fecha del aviso.
+import base64, html, logging, os
 from datetime import datetime
-
-# Adjuntar Excel (si Sheets falló).
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-
-# Ruta del Excel adjunto.
 from pathlib import Path
 
-# Carga el archivo .env.
 from dotenv import load_dotenv
-
-# Credenciales OAuth ya obtenidas por el clon.
 from google.oauth2.credentials import Credentials
-
-# Cliente API Gmail.
 from googleapiclient.discovery import build
 
 logger = logging.getLogger(__name__)

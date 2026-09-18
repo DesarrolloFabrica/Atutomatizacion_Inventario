@@ -1,41 +1,27 @@
 """
-CLONACION_CARPETA � renovar_token.py
+CLONACION_CARPETA — renovar_token.py
 ------------------------------------
-Herramienta de mantenimiento (NO clona ni carga GCP).
+Herramienta de mantenimiento: vuelve a autorizar OAuth y regenera token.json
+usando credentials.json (aplicación de escritorio).
 
-Qu� hace: vuelve a autorizar OAuth y regenera token.json
-usando credentials.json (aplicaci�n de escritorio).
-
-Cu�ndo usarlo:
-  - token.json no existe
-  - token caduc� / fue revocado
-  - falta el permiso de Gmail (correo) o Sheets
-
-Permisos pedidos: Drive + Sheets + Gmail send
-(igual que clone_carpeta_drive.py).
+Cuándo usarlo: token ausente, caducado/revocado, o falta permiso Gmail/Sheets.
+Permisos: Drive + Sheets + Gmail send (igual que clone_carpeta_drive.py).
 """
 
-# Tipos modernos.
 from __future__ import annotations
 
-# Rutas del directorio actual.
 from pathlib import Path
 
-# Flujo OAuth �Desktop app� de Google (abre URL en el navegador).
 from google_auth_oauthlib.flow import InstalledAppFlow
 
-# Misma lista de permisos que el clon (para que el token sirva para todo).
 SCOPES = [
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/gmail.send",
 ]
 
-# Carpeta de este script.
 BASE = Path(__file__).resolve().parent
-# OAuth Desktop (NO subir a Git).
 CREDENTIALS_PATH = BASE / "credentials.json"
-# Sesi�n que se crea/actualiza aqu� (NO subir a Git).
 TOKEN_PATH = BASE / "token.json"
 
 

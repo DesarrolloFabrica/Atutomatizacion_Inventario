@@ -27,10 +27,7 @@ Requiere: .env de Cloud SQL (DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD).
 
 from __future__ import annotations
 
-import argparse
-import os
-import re
-import sys
+import argparse, os, re, sys
 from pathlib import Path
 
 import psycopg2

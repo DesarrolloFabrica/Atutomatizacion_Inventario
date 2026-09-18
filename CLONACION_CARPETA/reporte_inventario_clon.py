@@ -25,13 +25,11 @@ Colores
 """
 from __future__ import annotations
 
-# --- Estructura de datos y utilidades estándar ---
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-# --- Excel (openpyxl): libro, estilos y hoja ---
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter

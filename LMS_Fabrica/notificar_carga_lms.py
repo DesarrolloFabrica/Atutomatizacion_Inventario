@@ -1,68 +1,27 @@
 """
 LMS_Fabrica — notificar_carga_lms.py
 ------------------------------------
-Qué hace este archivo:
-  Envía UN correo por Gmail cuando termina la carga a Cloud SQL.
-  Lo llama cargar_base_gcp.py (no se corre solo en el día a día).
-
-Qué NO hace:
-  No sube archivos a Drive.
-  No inserta en la base.
-  No se dispara solo por subir un PDF a Drive.
+Envía un correo por Gmail cuando termina la carga a Cloud SQL.
+Lo llama cargar_base_gcp.py.
 """
 
-# ---------------------------------------------------------------------------
-# IMPORTS (librerías que usa este script)
-# ---------------------------------------------------------------------------
-
-# Permite anotar tipos modernos (list[str], Path | None) en Python 3.10+.
 from __future__ import annotations
 
-# Codifica el correo en base64 (formato que exige la API de Gmail).
-import base64
-
-# Lee el CSV del lote (programas, clientes, enlaces).
-import csv
-
-# Escapa texto HTML para que no rompa el correo ni inyecte código.
-import html
-
-# Lee variables de entorno (CORREOS_AVISO del archivo .env).
-import os
-
-# Fecha/hora del momento del envío (va en el cuerpo del correo).
+import base64, csv, html, os
 from datetime import datetime
-
-# Arma un correo con partes (asunto, cuerpo HTML, etc.).
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-
-# Maneja rutas de archivos (Windows/Linux) de forma segura.
 from pathlib import Path
 
-# Carga el archivo .env (DB, correos, etc.) a variables de entorno.
 from dotenv import load_dotenv
-
-# Tipo de credenciales OAuth de Google.
 from google.oauth2.credentials import Credentials
-
-# Construye el cliente de la API (aquí: Gmail).
 from googleapiclient.discovery import build
-
-# Reutiliza auth y la ruta del .env ya definidas en generar_base_lms.py.
 from generar_base_lms import ENV_PATH, autenticar_drive
 
 
-# ---------------------------------------------------------------------------
-# FUNCIONES AUXILIARES
-# ---------------------------------------------------------------------------
-
 def cargar_destinatarios() -> list[str]:
-    # 1) Carga el .env desde ENV_PATH.
     load_dotenv(ENV_PATH)
-    # 2) Lee la variable CORREOS_AVISO (ej: "a@cun.edu.co,b@cun.edu.co").
     crudo = os.getenv("CORREOS_AVISO", "")
-    # 3) Separa por comas, quita espacios y descarta vacíos.
     return [c.strip() for c in crudo.split(",") if c.strip()]
 
 
