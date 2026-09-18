@@ -7,7 +7,7 @@ El JPG original va a la papelera. El PNG queda en el mismo lugar.
 No usa Excel. No manda correo. No toca GCP.
 
 Uso:
-  python convertir_jpg_a_png.py --carpeta "https://drive.google.com/drive/folders/TU_ID"
+  python convertir_jpg_a_png.py --carpeta "https://drive.google.com/drive/folders/<ID_CARPETA>"
 """
 
 from __future__ import annotations

@@ -12,8 +12,8 @@ No ejecuta clonar_esquema_pruebas.py (admin, una sola vez; fuera del flujo diari
 
 Uso tipico (desde la raiz del repo):
 
-  python run_flujo.py --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"
-  python run_flujo.py --excel C:\\ruta\\RUTAS.xlsx --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"
+  python run_flujo.py --carpeta-formato "https://drive.google.com/drive/folders/<ID_CARPETA>"
+  python run_flujo.py --excel C:\\ruta\\RUTAS.xlsx --carpeta-formato "https://drive.google.com/drive/folders/<ID_CARPETA>"
   python run_flujo.py --sin-formato --sin-clon --schema fabrica_pruebas
 """
 
