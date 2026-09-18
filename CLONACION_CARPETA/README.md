@@ -76,6 +76,4 @@ el CSV de carga a Cloud SQL.
 python comparar_clon_drive.py --origen "<ENLACE_O_ID>" --destino "<ENLACE_O_ID>"
 ```
 
-## Alcance
-
-Este bloque no carga Cloud SQL. El bloque siguiente es `LMS_Fabrica`.
+Siguiente módulo del flujo: `LMS_Fabrica`.

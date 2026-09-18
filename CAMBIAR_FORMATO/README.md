@@ -63,7 +63,3 @@ sin archivos JPG presentes en la carpeta.
 | `convertir_jpg_a_png.py` | Script de ejecución |
 | `requirements.txt` | Dependencias |
 | `codigo.js` / `codigos.txt` | Alternativa Apps Script (fuera del flujo diario) |
-
-## Alcance
-
-Este módulo no lee `RUTAS.xlsx`, no envía correo y no escribe en Cloud SQL.
