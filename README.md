@@ -11,7 +11,7 @@ Este repo NO incluye secretos. Cada persona configura OAuth y `.env` en local.
 
 El flujo tiene tres bloques (capas operativas):
 
-- `CAMBIAR_FORMATO/`: convierte JPG/JPEG a PNG en Drive (paso opcional).
+- `CAMBIAR_FORMATO/`: convierte JPG/JPEG a PNG en Drive (**obligatorio** en el flujo diario).
 - `CLONACION_CARPETA/`: clona origen -> destino, inventaria, publica Google Sheet
   y envia correo Gmail con el link del inventario.
 - `LMS_Fabrica/`: escanea el destino, genera CSV y carga a Cloud SQL;
@@ -30,24 +30,19 @@ Documentacion extra por carpeta y listado de archivos:
 
 ## Flujo general
 
-1. (Opcional) Convertir JPG a PNG en Drive.
+1. Convertir JPG a PNG en Drive (`--carpeta` / `--carpeta-formato`).
 2. Leer `RUTAS.xlsx` y clonar carpeta origen -> destino.
-3. Generar inventario (Excel local + Google Sheet) y enviar **correo 1**
-   (link de la Sheet).
+3. Generar inventario (Excel local + Google Sheet) y enviar **correo 1**.
 4. Escanear solo el **destino**, generar CSV intermedio.
-5. Cargar CSV a Cloud SQL (`fabrica_pruebas` por defecto) y enviar **correo 2**
-   (resumen + query SQL).
+5. Cargar CSV a Cloud SQL (`fabrica_pruebas`) y enviar **correo 2**.
 
-No corre todo en un solo comando ni en paralelo.
-Son bloques en serie.
-
-Para correrlos **encadenados de punta a punta**:
+El inventario va **después** del clon (compara origen vs destino).
 
 ```powershell
-python run_flujo.py
+python run_flujo.py --carpeta-formato <ID_o_URL_Drive>
 ```
 
-Opciones: `--con-formato`, `--excel RUTA`, `--sin-clon`, `--sin-gcp`, `--sin-correo`.
+Opciones: `--excel RUTA`, `--sin-formato`, `--sin-clon`, `--sin-gcp`, `--sin-correo`.
 Detalle en `DOCUMENTACION_PROCESO.md`.
 
 
@@ -55,7 +50,7 @@ Detalle en `DOCUMENTACION_PROCESO.md`.
 
 ```text
 ./
-├── run_flujo.py                        # orquestador continuo (opcional)
+├── run_flujo.py                        # orquestador del flujo diario
 ├── CAMBIAR_FORMATO/
 │   ├── convertir_jpg_a_png.py
 │   ├── codigo.js
@@ -63,10 +58,10 @@ Detalle en `DOCUMENTACION_PROCESO.md`.
 │   ├── requirements.txt
 │   └── README.md
 ├── CLONACION_CARPETA/
-│   ├── clone_carpeta_drive.py          # entrada principal del clon
+│   ├── clone_carpeta_drive.py          # clon + reporte inventario + correo 1
 │   ├── reporte_inventario_clon.py
 │   ├── publicar_inventario_sheets.py
-│   ├── notificar_clonacion.py          # correo 1 (Sheet)
+│   ├── notificar_clonacion.py
 │   ├── renovar_token.py
 │   ├── comparar_clon_drive.py          # diagnostico (no diario)
 │   ├── .env.example
@@ -76,8 +71,9 @@ Detalle en `DOCUMENTACION_PROCESO.md`.
 │   ├── generar_base_rutas.py           # Excel -> Drive -> CSV
 │   ├── cargar_base_gcp.py              # CSV -> Cloud SQL + correo 2
 │   ├── notificar_carga_lms.py
-│   ├── generar_base_lms.py             # libreria compartida
-│   ├── clonar_esquema_pruebas.py       # admin (una vez; no diario)
+│   ├── generar_base_lms.py             # libreria compartida (API publica)
+│   ├── lms_lib/                        # constantes compartidas
+│   ├── clonar_esquema_pruebas.py       # admin una vez (NO diario)
 │   ├── .env.example
 │   ├── requirements.txt
 │   └── README.md
@@ -121,10 +117,7 @@ Detalle completo de columnas, valores y mapeo a GCP:
 ver `DICCIONARIO_DATOS_EXCEL.md`.
 
 El nombre del **programa** en GCP sale del nombre de la carpeta en Drive.
-
-`METADATA_EXTRA` en `generar_base_rutas.py` es un diccionario de apoyo
-(escuela/cliente). **No** es la lista de carpetas a escanear.
-Solo se procesan las filas del Excel.
+Cliente/origen/destino salen del Excel (no hay diccionario hardcodeado de programas).
 
 
 ## Dos reglas distintas
@@ -136,8 +129,8 @@ Inventario del clon:
 
 Carga a GCP:
 
-- Solo indexa archivos `G` + digitos (ej. `G1001_intro.pdf`).
-- El resto puede existir en Drive, pero no entra al CSV ni a la base.
+- Si el nombre empieza con `G` + digitos, ese es el codigo.
+- Si no (Moodle u otros), se usa el stem del archivo.
 
 
 ## Correos (hay dos)
@@ -214,29 +207,22 @@ En nube o equipo compartido: secretos fuera del repo (nunca versionar
 
 ## Ejecutar flujo continuo (recomendado)
 
-Desde la raíz del repo:
-
 ```powershell
-python run_flujo.py
+python run_flujo.py --carpeta-formato <ID_o_URL_Drive>
 ```
 
-Eso encadena clonación → CSV → Cloud SQL (y se detiene si un paso falla).
-Con JPG previos:
-
-```powershell
-python run_flujo.py --con-formato
-```
+Encadena formato → clonación/inventario → CSV → Cloud SQL.
 
 
-## Ejecutar formato (opcional, suelto)
+## Ejecutar formato (obligatorio en flujo diario)
 
 ```powershell
 cd CAMBIAR_FORMATO
 pip install -r requirements.txt
-python convertir_jpg_a_png.py
+python convertir_jpg_a_png.py --carpeta <ID_o_URL_Drive>
 ```
 
-Ajusta `ID_CARPETA` dentro del script antes de correr.
+La carpeta se pasa por argumento (no hay ID hardcodeado en el script).
 
 
 ## Ejecutar clonacion + inventario + correo

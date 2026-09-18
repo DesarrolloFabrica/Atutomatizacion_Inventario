@@ -1,22 +1,22 @@
 """
-run_flujo.py - orquestador continuo del proceso completo
-------------------------------------------------------
+run_flujo.py — orquestador del proceso completo
+----------------------------------------------
 Ejecuta en serie (si un paso falla, se detiene):
 
-  1) (opcional) CAMBIAR_FORMATO / convertir_jpg_a_png.py
-  2) CLONACION_CARPETA / clone_carpeta_drive.py   -> inventario + correo 1
-  3) LMS_Fabrica / generar_base_rutas.py         -> CSV
-  4) LMS_Fabrica / cargar_base_gcp.py            -> Cloud SQL + correo 2
+  1) CAMBIAR_FORMATO / convertir_jpg_a_png.py   (obligatorio; omitir con --sin-formato)
+  2) CLONACION_CARPETA / clone_carpeta_drive.py -> clonar + inventario + correo 1
+  3) LMS_Fabrica / generar_base_rutas.py        -> CSV
+  4) LMS_Fabrica / cargar_base_gcp.py           -> Cloud SQL + correo 2
 
-No ejecuta clonar_esquema_pruebas.py (eso es admin, fuera del flujo diario).
+No ejecuta clonar_esquema_pruebas.py (admin, una sola vez; fuera del flujo diario).
 
 Uso tipico (desde la raiz del repo):
 
-  python run_flujo.py
-  python run_flujo.py --con-formato
-  python run_flujo.py --excel C:\\Users\\angie_vera\\Downloads\\RUTAS.xlsx
-  python run_flujo.py --sin-clon --schema fabrica_pruebas
+  python run_flujo.py --carpeta-formato <ID_o_URL_Drive>
+  python run_flujo.py --excel C:\\ruta\\RUTAS.xlsx --carpeta-formato <ID_o_URL>
+  python run_flujo.py --sin-formato --sin-clon --schema fabrica_pruebas
 """
+
 from __future__ import annotations
 
 import argparse
@@ -29,13 +29,11 @@ DIR_FORMATO = ROOT / "CAMBIAR_FORMATO"
 DIR_CLON = ROOT / "CLONACION_CARPETA"
 DIR_LMS = ROOT / "LMS_Fabrica"
 
-# Misma ruta por defecto que usa el bloque de clonacion.
 RUTAS_DEFAULT = Path(r"C:\Users\angie_vera\Downloads\RUTAS.xlsx")
 CSV_DEFAULT = DIR_LMS / "lms_base_rutas.csv"
 
 
 def correr_paso(nombre: str, comando: list[str], cwd: Path) -> None:
-    """Lanza un subproceso; si falla, aborta el flujo completo."""
     print("\n" + "=" * 60, flush=True)
     print(f"PASO: {nombre}", flush=True)
     print(f"CMD : {' '.join(comando)}", flush=True)
@@ -51,7 +49,7 @@ def correr_paso(nombre: str, comando: list[str], cwd: Path) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Orquesta el flujo continuo: formato -> clon -> CSV -> GCP."
+        description="Orquesta el flujo: formato -> clon/inventario -> CSV -> GCP."
     )
     parser.add_argument(
         "--excel",
@@ -71,9 +69,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Esquema Cloud SQL (default: fabrica_pruebas). No crea esquema.",
     )
     parser.add_argument(
-        "--con-formato",
+        "--carpeta-formato",
+        default="",
+        help="ID o URL Drive para JPG→PNG (obligatorio salvo --sin-formato).",
+    )
+    parser.add_argument(
+        "--sin-formato",
         action="store_true",
-        help="Incluye conversion JPG a PNG antes del clon.",
+        help="Omite conversion JPG a PNG (por defecto SI se ejecuta).",
     )
     parser.add_argument(
         "--sin-clon",
@@ -83,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--sin-gcp",
         action="store_true",
-        help="Omite generacion CSV y carga GCP (solo clon / formato).",
+        help="Omite generacion CSV y carga GCP (solo formato / clon).",
     )
     parser.add_argument(
         "--sin-correo",
@@ -94,6 +97,12 @@ def main(argv: list[str] | None = None) -> int:
         "--actualizar",
         action="store_true",
         help="Pasa --actualizar a cargar_base_gcp.py (solo pruebas).",
+    )
+    # Compatibilidad: --con-formato ya no es necesario (formato va por defecto).
+    parser.add_argument(
+        "--con-formato",
+        action="store_true",
+        help=argparse.SUPPRESS,
     )
     args = parser.parse_args(argv)
 
@@ -111,14 +120,23 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Schema: {args.schema}", flush=True)
     print("  (No se ejecuta creacion/clonacion de esquema DB)", flush=True)
 
-    if args.con_formato:
+    if not args.sin_formato:
+        carpeta = (args.carpeta_formato or "").strip()
+        if not carpeta:
+            print(
+                "Error: JPG→PNG es obligatorio. Pasa --carpeta-formato <ID_o_URL_Drive> "
+                "o usa --sin-formato solo si el lote ya está en PNG.",
+                file=sys.stderr,
+            )
+            return 1
         correr_paso(
             "Formato JPG a PNG",
-            [py, "convertir_jpg_a_png.py"],
+            [py, "convertir_jpg_a_png.py", "--carpeta", carpeta],
             DIR_FORMATO,
         )
 
     if not args.sin_clon:
+        # Orden operativo: primero clonar (crea destino), luego inventario compara origen vs destino.
         correr_paso(
             "Clonacion + inventario + correo 1",
             [py, "clone_carpeta_drive.py", "--excel", str(excel)],

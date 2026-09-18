@@ -6,49 +6,27 @@ Paso 1 de la carga a GCP (no escribe en la base; no envía correo).
 Entrada:  RUTAS.xlsx (filas con destino a escanear; cliente/etiqueta/origen).
 Salida:   CSV tipo studio_results (ej. lms_base_rutas.csv).
 
-Solo indexa archivos cuyo nombre empieza con G + dígitos (gránulos).
-METADATA_EXTRA NO es la lista de lotes: es un diccionario de apoyo
-(escuela/cliente por nombre de programa). Lo que se escanea sale del Excel.
+Indexa archivos con código G+dígitos si lo tienen; si no, usa el stem
+(p. ej. Moodle 01_Quiz.txt). Lo que se escanea sale solo del Excel
+(origen/destino/cliente); no hay diccionario hardcodeado de programas.
 
 Siguiente script: cargar_base_gcp.py
 """
 
-# ---------------------------------------------------------------------------
-# IMPORTS — librerías de este script (generar CSV desde Excel + Drive)
-# ---------------------------------------------------------------------------
-
-# Tipos modernos (Path | None, list[str], etc.).
 from __future__ import annotations
 
-# Leer argumentos de línea de comandos (--excel, -o).
 import argparse
-
-# Escribir el CSV de salida.
 import csv
-
-# Expresiones regulares (nombres, códigos, etc. vía helpers).
 import re
-
-# Salida de errores a stderr / códigos de retorno.
 import sys
-
-# Cola para recorrer carpetas en anchura (BFS).
 from collections import deque
-
-# Marca de tiempo UTC al generar filas.
 from datetime import datetime, timezone
-
-# Rutas de archivos.
 from pathlib import Path
 
-# Leer el Excel RUTAS.xlsx como tabla.
 import pandas as pd
-
-# Cliente API Drive + errores HTTP.
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-# Funciones compartidas (auth, parseo de rutas, código G, columnas del CSV…).
 from generar_base_lms import (
     BASE_DIR,
     COLUMNAS_SALIDA,
@@ -72,92 +50,11 @@ EXCEL_DEFAULT = BASE_DIR / "RUTAS.xlsx"
 if not EXCEL_DEFAULT.exists():
     EXCEL_DEFAULT = BASE_DIR / "RUTAS.csv"
 SALIDA_DEFAULT = BASE_DIR / "lms_base_rutas.csv"
-# Referencia opcional para resolver IDs históricos. NO es la lista de rutas a procesar.
-REF_DEFAULT = Path(r"c:\Users\sara_martinezl\Downloads\studio_results_20260618_1055.csv")
+# CSV de referencia opcional (IDs históricos). Vacío = no usar. Origen/destino salen del Excel.
+REF_DEFAULT = BASE_DIR / "studio_results_referencia.csv"
 
-# Catálogo de apoyo (escuela / cliente por defecto) por nombre de programa en Drive.
-# NO son filas a escanear: lo que se procesa sale solo de RUTAS.xlsx.
-# Si el Excel trae cliente/raíz, esos valores ganan sobre este diccionario.
-METADATA_EXTRA: dict[str, dict[str, str]] = {
-    "ESPECIALIZACION_EN_GOBERNANZA_DE_LA_INTELIGENCIA_ARTIFICIAL": {
-        "escuela": "ESCUELA_CIENCIAS_SOCIALES_JURIDICAS_Y_GOBIERNO",
-        "cliente": "TANIA",
-    },
-    "ESPECIALIZACION_EN_DISENO_Y_DESARROLLO_DE_VIDEOJUEGOS": {
-        "escuela": "DISENO_Y_COMUNICACION",
-        "cliente": "TANIA",
-    },
-    "INGENIERIA_EN_LOGISTICA": {
-        "escuela": "ESCUELA_DE_INGENIERIA",
-        "cliente": "PRODUCTO",
-    },
-    # Lote RUTAS actual
-    "ESPECIALIZACION_EN_CONTRATACION_ESTATAL": {
-        "escuela": "ESCUELA_CIENCIAS_SOCIALES_JURIDICAS_Y_GOBIERNO",
-        "cliente": "TANIA",
-    },
-    "DIPLOMADO_EN_VALORACION_ECONOMICA_DE_RECURSOS_NATURALES": {
-        "escuela": "ESCUELA_CIENCIAS_SOCIALES_JURIDICAS_Y_GOBIERNO",
-        "cliente": "PRODUCTO",
-    },
-    "DIPLOMADO_EN_CASACION_LABORAL": {
-        "escuela": "ESCUELA_CIENCIAS_SOCIALES_JURIDICAS_Y_GOBIERNO",
-        "cliente": "PRODUCTO",
-    },
-    "DIPLOMADO_EN_SISTEMA_GENERAL_DE_SEGURIDAD_SOCIAL_EN_SALUD": {
-        "escuela": "ESCUELA_CIENCIAS_SOCIALES_JURIDICAS_Y_GOBIERNO",
-        "cliente": "PRODUCTO",
-    },
-    "DIPLOMADO_EN_PREVENCION_ACCION_Y_ASISTENCIA_HUMANITARIA": {
-        "escuela": "ESCUELA_CIENCIAS_SOCIALES_JURIDICAS_Y_GOBIERNO",
-        "cliente": "PRODUCTO",
-    },
-    "DIPLOMADO_EN_JUSTICIA_TRANSICIONAL_Y_DERECHOS_HUMANOS": {
-        "escuela": "ESCUELA_CIENCIAS_SOCIALES_JURIDICAS_Y_GOBIERNO",
-        "cliente": "PRODUCTO",
-    },
-    "DIPLOMADO_EN_GERENCIA_DE_DISENO_Y_PORTAFOLIO": {
-        "escuela": "ESCUELA_DE_DISENO_Y_COMUNICACION",
-        "cliente": "PRODUCTO",
-    },
-    "DIPLOMADO_EN_EDICION_Y_COMPOSICION_DIGITAL": {
-        "escuela": "ESCUELA_DE_DISENO_Y_COMUNICACION",
-        "cliente": "PRODUCTO",
-    },
-    "DIPLOMADO_EN_COMUNICACION_ORGANIZACIONAL": {
-        "escuela": "ESCUELA_DE_DISENO_Y_COMUNICACION",
-        "cliente": "PRODUCTO",
-    },
-    "QUIMICA_FARMACEUTICA": {
-        "escuela": "ESCUELA_SALUD_Y_BIENESTAR",
-        "cliente": "PRODUCTO",
-    },
-    "ADMINISTRACION_DE_EMPRESAS": {
-        "escuela": "ESCUELA_DE_TRANSFORMACION_EMPRESARIAL",
-        "cliente": "PRODUCTO",
-    },
-    "ADMINISTRACION_FINANCIERA_DIGITAL": {
-        "escuela": "ESCUELA_DE_TRANSFORMACION_EMPRESARIAL",
-        "cliente": "PRODUCTO",
-    },
-    "ESPECIALIZACION_EN_EXPERIENCIAS_GASTRONOMICAS": {
-        "escuela": "ESCUELA_DE_TRANSFORMACION_EMPRESARIAL",
-        "cliente": "TANIA",
-    },
-    "ESPECIALIZACION_EN_DERECHO_PENAL": {
-        "escuela": "ESCUELA_CIENCIAS_SOCIALES_JURIDICAS_Y_GOBIERNO",
-        "cliente": "TANIA",
-    },
-    "ESPECIALIZACION_EN_GERENCIA_PUBLICA": {
-        "escuela": "ESCUELA_TRANSFORMACION_EMPRESARIAL",
-        "cliente": "PRODUCTO",
-    },
-    "LMS_CORRECCIONES": {
-        "escuela": "",
-        "cliente": "PRODUCTO",
-        "raiz": "LMS_Carga",
-    },
-}
+# Ya no hay catálogo hardcodeado de programas: cliente/escuela salen del Excel y de Drive.
+
 
 _ROMAN_SEMESTRE = {
     "I": 1,
@@ -176,7 +73,7 @@ _ROMAN_SEMESTRE = {
 
 
 def cargar_metadata_programas(*fuentes: Path) -> dict[str, dict[str, str]]:
-    meta: dict[str, dict[str, str]] = dict(METADATA_EXTRA)
+    meta: dict[str, dict[str, str]] = {}
     for ruta in fuentes:
         if not ruta.exists():
             continue
@@ -452,7 +349,7 @@ def escanear_carpeta_programa(
 ) -> list[dict]:
     """
     Recorre en anchura (BFS) la carpeta del programa.
-    Solo agrega archivos con código G (extraer_codigo). El resto se ignora para el CSV.
+    Agrega archivos con código extraíble (G+dígitos o stem vía extraer_codigo).
     """
     raiz = (
         servicio.files()
@@ -565,7 +462,7 @@ def generar(
 ) -> int:
     """
     Orquestación: lee Excel → por cada destino escanea Drive → arma filas CSV.
-    Devuelve 0 si ok, 1 si no hubo archivos G.
+    Devuelve 0 si ok, 1 si no hubo archivos indexables.
     """
     rutas = leer_rutas_excel(excel)
     print(f"Rutas en Excel: {len(rutas)}", flush=True)
@@ -622,12 +519,12 @@ def generar(
             flush=True,
         )
         encontrados = escanear_ruta_drive(servicio, folder_id, meta_prog)
-        print(f"  -> {len(encontrados)} archivos G", flush=True)
+        print(f"  -> {len(encontrados)} archivos", flush=True)
         registros.extend(encontrados)
 
-    print(f"\nTotal archivos G: {len(registros)}", flush=True)
+    print(f"\nTotal archivos: {len(registros)}", flush=True)
     if not registros:
-        print("No se encontraron archivos con código G.")
+        print("No se encontraron archivos indexables.")
         return 1
 
     ref = ReferenciaGcp(referencia)

@@ -1,25 +1,24 @@
 # Inventario de archivos del repositorio
 
-Lista de TODO lo que hay en FlujoFormato_clonacion y para que sirve.
-Los scripts .py tienen comentarios tutorial dentro del codigo.
+Lista de lo que hay en el repo y para qué sirve.
 
 
 ==================================================
 RAIZ
 ==================================================
 
-  README.md                  -> vision general del flujo (estilo repos Fabrica)
-  DOCUMENTACION_PROCESO.md   -> workflow completo + paso a paso diario
-  DICCIONARIO_DATOS_EXCEL.md -> columnas de RUTAS.xlsx (diccionario de datos)
-  CHECKLIST_ENTREGA.md       -> validacion al cerrar / entregar el lote
-  run_flujo.py               -> orquestador continuo (clon -> CSV -> GCP)
-  ARCHIVOS.md                -> este inventario
+  README.md                  -> vision general del flujo
+  DOCUMENTACION_PROCESO.md   -> workflow + paso a paso diario
+  DICCIONARIO_DATOS_EXCEL.md -> columnas de RUTAS.xlsx
+  CHECKLIST_ENTREGA.md       -> validacion al cerrar el lote
+  run_flujo.py               -> orquestador (formato -> clon -> CSV -> GCP)
+  ARCHIVOS.md                -> este listado
   .gitignore                 -> evita subir secretos y basura de corridas
-  .env.example               -> plantilla de CORREOS_AVISO + DB_* (copiar a .env)
+  .env.example               -> plantilla CORREOS_AVISO + DB_* (copiar a .env)
 
 
 ==================================================
-CAMBIAR_FORMATO/   (JPG -> PNG, opcional)
+CAMBIAR_FORMATO/   (JPG -> PNG, obligatorio en flujo diario)
 ==================================================
 
   convertir_jpg_a_png.py   USO DIARIO SI APLICA
@@ -84,7 +83,6 @@ LMS_Fabrica/   (CSV + Cloud SQL + correo)
 
   generar_base_rutas.py         PASO 1 DIARIO
                                 Excel -> escanea destino Drive -> CSV
-                                (solo archivos G + digitos)
 
   cargar_base_gcp.py            PASO 2 DIARIO
                                 CSV -> Cloud SQL + dispara correo
@@ -92,13 +90,12 @@ LMS_Fabrica/   (CSV + Cloud SQL + correo)
   notificar_carga_lms.py        ENCADENADO
                                 Correo Gmail con resumen + query SQL
 
-  generar_base_lms.py           LIBRERIA
+  generar_base_lms.py           LIBRERIA (API publica)
                                 Auth, parsers, columnas CSV, IDs
-                                (la importan los otros scripts)
 
-  clonar_esquema_pruebas.py     NO DIARIO
-                                Copia esquema fabrica -> fabrica_pruebas
-                                (se hace una vez / solo admin)
+  lms_lib/                      Constantes compartidas
+
+  clonar_esquema_pruebas.py     NO DIARIO (admin, una sola vez)
 
   .env.example                  PLANTILLA
                                 CORREOS_AVISO + DB_* + LMS_SCHEMA
@@ -114,14 +111,11 @@ LMS_Fabrica/   (CSV + Cloud SQL + correo)
 
 
 ==================================================
-NOTA: METADATA_EXTRA
+RUTAS Y METADATA
 ==================================================
 
-En generar_base_rutas.py hay un diccionario largo de programas.
-
-NO son rutas a ejecutar.
-Es un catalogo de apoyo (escuela/cliente).
-Lo que se procesa sale solo de RUTAS.xlsx.
+Origen/destino/cliente salen de RUTAS.xlsx.
+No hay diccionario hardcodeado de programas en el codigo.
 
 
 ==================================================
@@ -131,19 +125,16 @@ CORREOS (HAY DOS)
   Despues del clon  -> notificar_clonacion.py  -> link Google Sheet
   Despues de GCP    -> notificar_carga_lms.py  -> resumen + query SQL
 
-Ninguno se dispara solo por subir un PDF a Drive.
-
 
 ==================================================
 ORDEN DE COMANDOS
 ==================================================
 
-  # Recomendado (continuo):
-  python run_flujo.py
+  python run_flujo.py --carpeta-formato <ID_o_URL_Drive>
 
   # Bloques sueltos:
   cd CAMBIAR_FORMATO
-  python convertir_jpg_a_png.py
+  python convertir_jpg_a_png.py --carpeta <ID_o_URL_Drive>
 
   cd ..\CLONACION_CARPETA
   python clone_carpeta_drive.py
@@ -153,5 +144,5 @@ ORDEN DE COMANDOS
   python cargar_base_gcp.py -i lms_base_rutas.csv --schema fabrica_pruebas
 
 
-Detalle operativo: DOCUMENTACION_PROCESO.md
-Cierre de lote: CHECKLIST_ENTREGA.md
+Detalle: DOCUMENTACION_PROCESO.md
+Cierre: CHECKLIST_ENTREGA.md

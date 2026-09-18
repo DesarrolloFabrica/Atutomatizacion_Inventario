@@ -11,39 +11,26 @@ Regla anti-duplicados: si el enlace del archivo ya existe, no vuelve a insertarl
 --actualizar (solo en fabrica_pruebas): cambia cliente_id y raiz_id de existentes.
 """
 
-# ---------------------------------------------------------------------------
-# IMPORTS — carga del CSV a Cloud SQL + correo
-# ---------------------------------------------------------------------------
-
 from __future__ import annotations
 
-# Argumentos: -i CSV, --schema, --actualizar, --sin-correo.
 import argparse
-
-# Leer filas del CSV.
 import csv
-
-# Variables de entorno (DB_HOST, DB_PASSWORD, etc.).
 import os
-
-# Validar nombre de esquema con regex.
 import re
 import sys
-
-# Fecha de registro del archivo insertado.
 from datetime import datetime, timezone
-
-# Rutas de archivos.
 from pathlib import Path
 
-# Conector PostgreSQL (Cloud SQL).
 import psycopg2
-
-# Cargar .env con la contraseña y host de la base.
 from dotenv import load_dotenv
 
-# Ruta del .env, esquema por defecto y helper para IDs de enlace Drive.
-from generar_base_lms import ENV_PATH, SCHEMA, extraer_id_archivo
+from generar_base_lms import (
+    ENV_PATH,
+    EXTENSION_MAP,
+    SCHEMA,
+    extraer_id_archivo,
+    normalizar_extension,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_CSV = BASE_DIR / "lms_base_final.csv"
@@ -60,6 +47,26 @@ def next_id(cur, table: str) -> int:
     """Obtiene el siguiente id numérico (MAX+1) para tablas sin secuencia usada aquí."""
     cur.execute(f"SELECT COALESCE(MAX(id), 0) + 1 FROM {SCHEMA}.{table}")
     return int(cur.fetchone()[0])
+
+
+def resolver_extension_id(cur, tipo: str, cache: dict) -> int:
+    """Misma regla que IdResolver: mapa fijo → lookup → create (sin duplicar formato)."""
+    tipo_norm = normalizar_extension(tipo) or "sin_extension"
+    cache_key = ("extension", "tipo", tipo_norm)
+    if cache_key in cache:
+        return cache[cache_key]
+    if tipo_norm in EXTENSION_MAP:
+        cache[cache_key] = EXTENSION_MAP[tipo_norm]
+        return cache[cache_key]
+    cur.execute(
+        f"SELECT id FROM {SCHEMA}.extension WHERE tipo = %s OR UPPER(tipo) = %s",
+        (tipo_norm, tipo_norm.upper()),
+    )
+    row = cur.fetchone()
+    if row:
+        cache[cache_key] = int(row[0])
+        return cache[cache_key]
+    return get_or_create(cur, "extension", "tipo", tipo_norm, cache)
 
 
 def get_or_create(
@@ -338,8 +345,8 @@ def cargar_csv(
                     cliente_id = get_or_create(
                         cur, "cliente", "nombre", row["cliente_nombre"], cache
                     )
-                    extension_id = get_or_create(
-                        cur, "extension", "tipo", trunc(row["extension_tipo"], 10), cache
+                    extension_id = resolver_extension_id(
+                        cur, row["extension_tipo"], cache
                     )
 
                     archivo_id = next_id(cur, "archivo")

@@ -48,8 +48,6 @@ SCRIPTS
   renovar_token.py               Regenera token.json
   comparar_clon_drive.py         Diagnostico (NO es flujo diario)
 
-Todos los .py tienen comentarios tutorial en el codigo.
-
 
 --------------------------------------------------
 EXCEL DE RUTAS

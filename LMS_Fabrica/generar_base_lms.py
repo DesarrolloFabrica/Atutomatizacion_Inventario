@@ -1,132 +1,61 @@
 """
-Librería compartida del flujo LMS Fábrica.
+Librería compartida del flujo LMS Fábrica (API pública).
 
-Este módulo NO es solo un script de generación: concentra utilidades comunes
-que reutilizan otros scripts del mismo directorio, entre ellos:
-  - generar_base_rutas.py   (escaneo Drive + CSV de rutas)
-  - cargar_base_gcp.py      (carga a Cloud SQL / GCP)
-  - notificar_carga_lms.py  (notificaciones posteriores a la carga)
+Entradas del flujo diario: run_flujo.py, generar_base_rutas.py, cargar_base_gcp.py.
+Constantes en lms_lib.constantes (este módulo las reexporta para no romper imports).
 
-Qué ofrece aquí:
-  - Autenticación OAuth con Google Drive (credenciales.json / token.json).
-  - Parsers de rutas Drive y extracción de códigos de archivo (G + dígitos).
-  - Definición de columnas CSV de salida (formato studio_results / desnormalizado).
-  - IdResolver: resolución (y opcionalmente alta) de IDs contra Cloud SQL.
-  - ReferenciaGcp: reutilización de IDs desde un CSV exportado de GCP.
-  - generar(): orquestación Drive → filas CSV con IDs.
-
-Esquema Cloud SQL por defecto: fabrica_pruebas (variable de entorno LMS_SCHEMA).
-
-IMPORTANTE — no versionar secretos:
-  credenciales.json, token.json y .env NO deben subirse a Git.
-  Contienen OAuth y contraseñas de base de datos.
+No versionar: credenciales.json, token.json, .env.
 """
 
-from __future__ import annotations  # Aquí se habilitan anotaciones de tipos diferidas (Python 3.7+)
+from __future__ import annotations
 
-# --- Imports de la librería estándar ---
-import argparse  # Aquí se parsean argumentos de línea de comandos
-import csv  # Aquí se lee/escribe el CSV desnormalizado de salida
-import json  # Aquí se usa (indirectamente) al serializar token OAuth a JSON
-import os  # Aquí se leen variables de entorno (DB_*, LMS_SCHEMA)
-import re  # Aquí se definen patrones de código G+dígitos y rutas
-import sys  # Aquí se escriben avisos/errores a stderr
-import unicodedata  # Aquí se normalizan acentos al comparar nombres de carpetas
-from collections import deque  # Aquí se hace BFS al escanear carpetas de Drive
-from datetime import datetime, timezone  # Aquí se marca archivo_fecha_registro en UTC
-from pathlib import Path  # Aquí se resuelven rutas de archivos locales
-from urllib.parse import parse_qs, urlparse  # Aquí se extrae el ID de carpeta desde una URL de Drive
+import argparse
+import csv
+import os
+import re
+import sys
+import unicodedata
+from collections import deque
+from datetime import datetime, timezone
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
-# --- Imports de terceros (auth Google + Drive API) ---
-from dotenv import load_dotenv  # Aquí se cargan DB_* y LMS_SCHEMA desde .env
-from google.auth.exceptions import RefreshError  # Aquí se detecta token OAuth vencido/inválido
-from google.auth.transport.requests import Request  # Aquí se refresca el token OAuth
-from google.oauth2.credentials import Credentials  # Aquí se modelan las credenciales OAuth
-from google_auth_oauthlib.flow import InstalledAppFlow  # Aquí se abre el flujo de login en navegador
-from googleapiclient.discovery import build  # Aquí se construye el cliente de Drive API
-from googleapiclient.errors import HttpError  # Aquí se capturan errores de la API de Drive
+from google.auth.exceptions import RefreshError
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
-# --- Dependencia opcional: PostgreSQL / Cloud SQL ---
 try:
-    import psycopg2  # Aquí se conecta IdResolver a Cloud SQL
+    import psycopg2
 except ImportError:
-    psycopg2 = None  # type: ignore  # Sin psycopg2, IdResolver trabaja solo con IDs locales
+    psycopg2 = None  # type: ignore
 
-# --- Rutas locales del módulo (NO van a Git: credenciales, token, .env) ---
-BASE_DIR = Path(__file__).resolve().parent  # Aquí se toma la carpeta LMS_Fabrica
-TOKEN_PATH = BASE_DIR / "token.json"  # Aquí se guarda el token OAuth (NO subir a Git)
-CREDENTIALS_PATH = BASE_DIR / "credenciales.json"  # Aquí está el client secret OAuth (NO subir a Git)
-_ENV_CANDIDATES = [
-    BASE_DIR / ".env",  # Preferido: .env junto a este script
-    BASE_DIR.parent / "CARGA_LMS_GCP_INV" / ".env",  # Alternativa: .env del otro flujo
-]
-ENV_PATH = next((p for p in _ENV_CANDIDATES if p.exists()), _ENV_CANDIDATES[0])
-load_dotenv(ENV_PATH)  # Aquí se cargan variables de DB / esquema (el .env NO va a Git)
+from lms_lib.constantes import (
+    BASE_DIR,
+    CARPETA_DEFAULT,
+    CLIENTES_VALIDOS,
+    COLUMNAS_SALIDA,
+    CREDENTIALS_PATH,
+    DRIVE_ID_PATTERN,
+    ENV_PATH,
+    EXTENSION_MAP,
+    MIME_FOLDER,
+    PAQUETES_VALIDOS,
+    PATRON_ARCHIVO,
+    PATRON_CODIGO,
+    PATRON_GRANULO_NOMBRE,
+    RAIZ_DISPLAY,
+    SCHEMA,
+    SCOPES,
+    TOKEN_PATH,
+)
 
-# --- Constantes de negocio / Drive ---
-CARPETA_DEFAULT = "1anQgYLj527YuLaxyZDpEEyYnUEJY97h0"  # ID de carpeta Drive por defecto
-CLIENTES_VALIDOS = {"PRODUCTO", "TANIA"}  # Carpetas cliente permitidas bajo Q2
-PAQUETES_VALIDOS = {"MODELO_NOTEBOOK", "NOTEBOOK", "MODELO_NOTEBOOK "}  # Nombres de paquete aceptados
-RAIZ_DISPLAY = {"LMS_CARGA": "LMS_Carga"}  # Nombre “bonito” de raíz en el CSV
-# Esquema Cloud SQL por defecto: fabrica_pruebas (override con LMS_SCHEMA en .env)
-SCHEMA = os.getenv("LMS_SCHEMA", "fabrica_pruebas")
 
-# Scopes OAuth: Drive (lectura/escritura), Sheets y Gmail (compartidos con otros scripts)
-SCOPES = [
-    "https://www.googleapis.com/auth/drive",
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/gmail.send",
-]
-MIME_FOLDER = "application/vnd.google-apps.folder"  # MIME de carpeta en Drive
-DRIVE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")  # Validación de IDs de Drive
-# Patrones de indexación a GCP: el código de archivo/gránulo es G seguido de dígitos
-# (ej. G12345, G12345_titulo.mp4). Solo esos archivos entran a la base.
-PATRON_ARCHIVO = re.compile(r"^G(\d+)(?:[_\s].*)?$", re.IGNORECASE)
-PATRON_CODIGO = re.compile(r"^G(\d+)", re.IGNORECASE)  # Regla de indexación: G + dígitos
-PATRON_GRANULO_NOMBRE = re.compile(r"^(G\d+)_(.+)$", re.IGNORECASE)
-
-# Columnas del CSV desnormalizado (mismo orden que studio_results / carga GCP)
-COLUMNAS_SALIDA = [
-    "archivo_id",
-    "archivo_nombre",
-    "archivo_nombre_original",
-    "archivo_enlace",
-    "archivo_hash",
-    "archivo_fecha_registro",
-    "archivo_activo",
-    "granulo_id",
-    "granulo_codigo",
-    "granulo_nombre",
-    "materia_id",
-    "materia_semestre",
-    "materia_nombre",
-    "programa_id",
-    "programa_nombre",
-    "escuela_id",
-    "escuela_nombre",
-    "paquete_id",
-    "paquete_nombre",
-    "raiz_id",
-    "raiz_nombre",
-    "destinatario_id",
-    "destinatario_codigo",
-    "periodo_id",
-    "periodo_codigo",
-    "cliente_id",
-    "cliente_nombre",
-    "extension_id",
-    "extension_tipo",
-]
-
-# Mapa fijo extensión → id conocido en GCP (evita crear filas duplicadas de extensión)
-EXTENSION_MAP = {
-    "mp3": 1,
-    "mp4": 2,
-    "pdf": 3,
-    "png": 5,
-    "gif": 665,
-    "zip": 671,
-}
+def normalizar_extension(tipo: object) -> str:
+    """Normaliza extensión a minúsculas sin punto (mp4, pdf). No usa norm_text."""
+    return str(tipo or "").strip().lower().lstrip(".")
 
 
 def norm_text(value: object) -> str:
@@ -229,15 +158,18 @@ def obtener_extension(archivo: dict) -> str:
 
 def extraer_codigo(nombre: str) -> str | None:
     """
-    Extrae el código de indexación GCP: G + dígitos (PATRON_CODIGO).
-    Ej.: 'G12345_titulo.mp4' → 'G12345'. Si no hay match, el archivo no se indexa.
+    Extrae el código de indexación del archivo.
+    - Si empieza con G + dígitos: usa ese código (ej. 'G12345_titulo.mp4' → 'G12345').
+    - Si no: usa el stem (ej. '01_Quiz.txt' → '01_Quiz'), p. ej. Moodle u otros sin G.
+    Solo devuelve None si el nombre queda vacío.
     """
     candidatos = [Path(nombre).stem, nombre]
     for candidato in candidatos:
         m = PATRON_CODIGO.match(candidato)
         if m:
             return f"G{m.group(1)}"
-    return None
+    stem = Path(nombre).stem.strip()
+    return stem or None
 
 
 def es_carpeta_granulo(nombre: str) -> bool:
@@ -293,9 +225,11 @@ def parsear_ruta(partes: list[str]) -> dict[str, str] | None:
     if len(partes) < 10:
         return None
 
-    cliente = norm_text(partes[3])
-    if cliente not in CLIENTES_VALIDOS:
+    cliente_carpeta = norm_text(partes[3])
+    if cliente_carpeta not in CLIENTES_VALIDOS:
         return None
+    # En Cloud SQL el cliente solo es PRODUCTO/TANIA; correcciones → PRODUCTO
+    cliente = "PRODUCTO" if cliente_carpeta == "LMS_CORRECCIONES" else cliente_carpeta
 
     # Aquí se arma la base común de la jerarquía (raíz → semestre)
     base = {
@@ -336,10 +270,10 @@ def parsear_ruta(partes: list[str]) -> dict[str, str] | None:
 
 def escanear_drive(servicio, folder_id: str) -> list[dict]:
     """
-    Escanea Drive bajo la raíz dada y devuelve registros de archivos G*.
+    Escanea Drive bajo la raíz dada y devuelve registros de archivos indexables.
 
     Prioriza la rama estándar LMS_Carga > MEN > Q2 > PRODUCTO|TANIA > ...
-    Solo incluye archivos cuyo nombre cumple la regla G+dígitos (indexación GCP).
+    Indexa archivos con código G+dígitos si lo tienen; si no, con el stem.
     """
     # Aquí se obtiene el nombre de la carpeta raíz
     raiz = (
@@ -350,7 +284,7 @@ def escanear_drive(servicio, folder_id: str) -> list[dict]:
     resultados: list[dict] = []
 
     def procesar_rama(pid: str, ruta: list[str]) -> None:
-        """BFS: recorre carpetas; indexa archivos con código G+dígitos y ruta válida."""
+        """BFS: recorre carpetas; indexa archivos con código extraíble y ruta válida."""
         cola: deque[tuple[str, list[str]]] = deque([(pid, ruta)])
         while cola:
             actual_id, actual_ruta = cola.popleft()
@@ -367,7 +301,7 @@ def escanear_drive(servicio, folder_id: str) -> list[dict]:
                     cola.append((hijo["id"], [*actual_ruta, nombre]))
                     continue
 
-                # Aquí se aplica la regla de indexación: solo archivos G+dígitos
+                # Código = G+dígitos si existe; si no, stem del archivo (Moodle, etc.)
                 codigo = extraer_codigo(nombre)
                 if not codigo:
                     continue
@@ -449,9 +383,7 @@ class IdResolver:
         if psycopg2 is None or not ENV_PATH.exists():
             return
 
-        load_dotenv(ENV_PATH)
         try:
-            # Aquí se abre la conexión con variables del .env (NO versionar en Git)
             self.conn = psycopg2.connect(
                 host=os.getenv("DB_HOST"),
                 port=int(os.getenv("DB_PORT", "5432")),
@@ -599,14 +531,27 @@ class IdResolver:
         return None
 
     def resolver_extension(self, tipo: str) -> int:
-        """Resuelve extension_id: primero EXTENSION_MAP fijo, luego get_or_create."""
-        tipo_norm = norm_text(tipo) if tipo else ""
-        if tipo_norm in EXTENSION_MAP:
-            key = ("extension", "tipo", tipo_norm)
-            if key not in self.cache:
-                self.cache[key] = EXTENSION_MAP[tipo_norm]
+        """
+        Resuelve extension_id sin duplicar formatos.
+        1) EXTENSION_MAP (ids fijos GCP)  2) lookup/create por tipo normalizado.
+        """
+        tipo_norm = normalizar_extension(tipo) or "sin_extension"
+        key = ("extension", "tipo", tipo_norm)
+        if key in self.cache:
             return self.cache[key]
-        return self._get_or_create("extension", "tipo", tipo_norm or "SIN_EXTENSION")
+        if tipo_norm in EXTENSION_MAP:
+            self.cache[key] = EXTENSION_MAP[tipo_norm]
+            return self.cache[key]
+        found = self._lookup("extension", "tipo = %s", (tipo_norm,))
+        if found is not None:
+            self.cache[key] = found
+            return found
+        # Variantes de mayúsculas ya existentes en DB (legado)
+        found_upper = self._lookup("extension", "UPPER(tipo) = %s", (tipo_norm.upper(),))
+        if found_upper is not None:
+            self.cache[key] = found_upper
+            return found_upper
+        return self._get_or_create("extension", "tipo", tipo_norm)
 
     def construir_fila(self, reg: dict, ahora: str) -> dict[str, str]:
         """Arma una fila CSV desnormalizada resolviendo todos los IDs del registro Drive."""
@@ -657,7 +602,7 @@ class IdResolver:
             "cliente_id": str(cliente_id),
             "cliente_nombre": reg["cliente"],
             "extension_id": str(extension_id),
-            "extension_tipo": reg["extension"],
+            "extension_tipo": normalizar_extension(reg["extension"]) or "sin_extension",
         }
 
     def close(self) -> None:
@@ -711,7 +656,7 @@ def generar(
     servicio = build("drive", "v3", credentials=autenticar_drive(), cache_discovery=False)
     print("Escaneando Google Drive...", flush=True)
     registros = escanear_drive(servicio, folder_id)
-    print(f"Archivos G encontrados (ruta estándar): {len(registros)}")
+    print(f"Archivos encontrados (ruta estándar): {len(registros)}")
 
     if not registros:
         print("No se encontraron archivos con la estructura esperada.")

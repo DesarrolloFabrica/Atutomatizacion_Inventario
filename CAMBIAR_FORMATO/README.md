@@ -1,69 +1,27 @@
 # CAMBIAR_FORMATO
 
-Convierte imagenes JPG/JPEG a PNG dentro de una carpeta de Google Drive
-(y subcarpetas).
+Convierte JPG/JPEG a PNG en una carpeta de Google Drive (y subcarpetas).
+Paso **obligatorio** del flujo diario (antes del clon).
 
-Ver tambien:
-  ../README.md
-  ../ARCHIVOS.md
+## Uso
 
+```powershell
+cd CAMBIAR_FORMATO
+pip install -r requirements.txt
+python convertir_jpg_a_png.py --carpeta <ID_o_URL_Drive>
+```
 
---------------------------------------------------
-CUANDO USARLO
---------------------------------------------------
+`--carpeta` es obligatorio (ID o URL). No hay carpeta hardcodeada en el código.
 
-Solo si el material tiene JPG que deban quedar en PNG antes de clonar.
-No es obligatorio en cada corrida.
+## Archivos
 
+- `convertir_jpg_a_png.py` — oficial
+- `codigo.js` / `codigos.txt` — respaldo Apps Script
+- `requirements.txt`
 
---------------------------------------------------
-ARCHIVOS DE ESTA CARPETA
---------------------------------------------------
+Secretos locales (NO Git): `credenciales.json`, `token.json`.
 
-  convertir_jpg_a_png.py   Oficial (Python en la PC + API Drive)
-  codigo.js                Misma logica en Google Apps Script
-  codigos.txt              Copia en texto del JS (respaldo)
-  requirements.txt         Dependencias (google-*, Pillow)
-  README.md                Este documento
+## Notas
 
-Secretos locales (NO Git):
-  credenciales.json
-  token.json
-
-
---------------------------------------------------
-COMO FUNCIONA (convertir_jpg_a_png.py)
---------------------------------------------------
-
-  1. Autentica con OAuth (credenciales.json -> token.json)
-  2. Parte de ID_CARPETA definido en el script (ajustarlo al lote)
-  3. Por cada JPEG: descarga -> Pillow -> sube PNG -> trash del JPG
-  4. Recorre subcarpetas
-
-El codigo esta comentado paso a paso dentro del .py
-
-
---------------------------------------------------
-COMANDO
---------------------------------------------------
-
-  cd CAMBIAR_FORMATO
-  pip install -r requirements.txt
-  python convertir_jpg_a_png.py
-
-
---------------------------------------------------
-APPS SCRIPT (ALTERNATIVA)
---------------------------------------------------
-
-Pegar codigo.js en Extensiones -> Apps Script de Drive,
-cambiar idCarpeta, ejecutar convertirJPGaPNG.
-
-
---------------------------------------------------
-NOTAS
---------------------------------------------------
-
-  - No lee RUTAS.xlsx
-  - No envia correo
-  - No toca Cloud SQL
+- No lee `RUTAS.xlsx`, no envía correo, no toca Cloud SQL.
+- En `run_flujo.py`: `--carpeta-formato` (o `--sin-formato` solo si el lote ya está en PNG).

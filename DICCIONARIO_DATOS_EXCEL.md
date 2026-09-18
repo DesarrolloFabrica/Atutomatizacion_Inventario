@@ -97,7 +97,7 @@ REGLAS DE LLENADO
 1. Una fila = un lote. No mezclar varios destinos en la misma celda.
 2. `origen` y `destino` deben ser carpetas válidas (URL o ID).
 3. Cierra el Excel antes de ejecutar (si está abierto, falla la lectura).
-4. En carga GCP solo entran archivos cuyo nombre empieza con `G` + dígitos (ej. `G1001_intro.pdf`).
+4. En carga GCP: si el nombre tiene `G`+dígitos se usa ese código; si no, el stem (p. ej. Moodle).
 5. El **nombre del programa** en GCP sale del **nombre de la carpeta en Drive**, no de la columna `etiqueta`.
 
 
@@ -107,8 +107,7 @@ QUE NO ES ESTE EXCEL
 
 - No es el inventario (eso lo genera la clonación).
 - No es el CSV que va a Cloud SQL (eso lo genera `generar_base_rutas.py`).
-- `METADATA_EXTRA` dentro de `generar_base_rutas.py` es un catálogo de apoyo
-  (escuela/cliente). **No** reemplaza las filas de `RUTAS.xlsx`.
+- Origen/destino/cliente del Excel son la fuente de rutas; no hay catálogo hardcodeado de programas.
 
 
 --------------------------------------------------

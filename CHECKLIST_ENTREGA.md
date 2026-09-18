@@ -25,17 +25,17 @@ B. EJECUCIÓN (elige una)
 
 Opción continua (recomendado):
 
-- [ ] Se ejecutó: `python run_flujo.py` (o con `--con-formato` si aplica)
+- [ ] Se ejecutó: `python run_flujo.py --carpeta-formato <ID_o_URL>` (o `--sin-formato` si ya está en PNG)
 - [ ] El orquestador terminó con "FLUJO COMPLETO: OK"
 
 Opción por bloques: continuar con C–D abajo.
 
 
 --------------------------------------------------
-C. FORMATO (solo si aplica JPG → PNG y no usaste --con-formato)
+C. FORMATO JPG → PNG (obligatorio en flujo diario)
 --------------------------------------------------
 
-- [ ] `ID_CARPETA` en `convertir_jpg_a_png.py` apunta al lote correcto
+- [ ] Se pasó `--carpeta` / `--carpeta-formato` (ID o URL Drive; sin hardcode)
 - [ ] Script terminó sin error
 - [ ] En Drive ya no quedan JPG del lote (quedaron PNG)
 
@@ -57,7 +57,7 @@ E. CARGA LMS / GCP + CORREO 2 (si corriste por bloques)
 --------------------------------------------------
 
 - [ ] Se generó CSV: `python generar_base_rutas.py --excel RUTAS.xlsx -o lms_base_rutas.csv`
-- [ ] El CSV tiene filas (no quedó vacío por falta de archivos `G*`)
+- [ ] El CSV tiene filas (no quedó vacío)
 - [ ] Se cargó a prueba: `python cargar_base_gcp.py -i lms_base_rutas.csv --schema fabrica_pruebas`
 - [ ] Llegó el **correo 2** (resumen + query SQL)
 - [ ] Query del correo abre resultados esperados en Cloud SQL Studio
