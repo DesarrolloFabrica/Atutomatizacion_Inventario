@@ -12,8 +12,8 @@ No ejecuta clonar_esquema_pruebas.py (admin, una sola vez; fuera del flujo diari
 
 Uso tipico (desde la raiz del repo):
 
-  python run_flujo.py --carpeta-formato <ID_o_URL_Drive>
-  python run_flujo.py --excel C:\\ruta\\RUTAS.xlsx --carpeta-formato <ID_o_URL>
+  python run_flujo.py --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"
+  python run_flujo.py --excel C:\\ruta\\RUTAS.xlsx --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"
   python run_flujo.py --sin-formato --sin-clon --schema fabrica_pruebas
 """
 
@@ -71,7 +71,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--carpeta-formato",
         default="",
-        help="ID o URL Drive para JPG→PNG (obligatorio salvo --sin-formato).",
+        help="Enlace o ID de la carpeta Drive para JPG→PNG (obligatorio salvo --sin-formato).",
     )
     parser.add_argument(
         "--sin-formato",
@@ -124,7 +124,8 @@ def main(argv: list[str] | None = None) -> int:
         carpeta = (args.carpeta_formato or "").strip()
         if not carpeta:
             print(
-                "Error: JPG→PNG es obligatorio. Pasa --carpeta-formato <ID_o_URL_Drive> "
+                "Error: JPG→PNG es obligatorio. Indica la carpeta con "
+                "--carpeta-formato (enlace o ID de Drive), "
                 "o usa --sin-formato solo si el lote ya está en PNG.",
                 file=sys.stderr,
             )

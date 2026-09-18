@@ -18,7 +18,7 @@ y **registra** archivos del destino en Cloud SQL (`planner_db`), con un segundo 
 ```text
 1) CAMBIAR_FORMATO  (obligatorio)
     JPG/JPEG -> PNG en Drive
-    Entrada: --carpeta (ID o URL Drive)
+    Entrada: --carpeta (enlace o ID de la carpeta en Drive)
               |
               v
 2) CLONACION_CARPETA
@@ -48,11 +48,11 @@ JPG→PNG va antes del clon y es obligatorio.
 
 | Capa | Carpeta | Entrada | Salida |
 |---|---|---|---|
-| Formato | `CAMBIAR_FORMATO/` | `--carpeta` (ID/URL Drive) | PNG en Drive |
+| Formato | `CAMBIAR_FORMATO/` | Enlace o ID de carpeta Drive | PNG en Drive |
 | Clonación | `CLONACION_CARPETA/` | `RUTAS.xlsx` | Destino + inventario + correo 1 |
 | Carga LMS | `LMS_Fabrica/` | `RUTAS.xlsx` (destino) | CSV + Cloud SQL + correo 2 |
 
-Orquestador: `python run_flujo.py --carpeta-formato <ID_o_URL>`
+Orquestador: `python run_flujo.py --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"`
 No ejecuta `clonar_esquema_pruebas.py` (admin, una sola vez).
 
 
@@ -64,7 +64,7 @@ No ejecuta `clonar_esquema_pruebas.py` (admin, una sola vez).
 
 ```powershell
 cd FlujoFormato_clonacion
-python run_flujo.py --carpeta-formato <ID_o_URL_Drive>
+python run_flujo.py --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"
 ```
 
 Variantes: `--excel RUTA`, `--sin-formato`, `--sin-clon`, `--sin-gcp`, `--sin-correo`.
@@ -76,7 +76,7 @@ Variantes: `--excel RUTA`, `--sin-formato`, `--sin-clon`, `--sin-gcp`, `--sin-co
 
 ```powershell
 cd CAMBIAR_FORMATO
-python convertir_jpg_a_png.py --carpeta <ID_o_URL_Drive>
+python convertir_jpg_a_png.py --carpeta "https://drive.google.com/drive/folders/TU_ID"
 ```
 
 3. Clonar + inventario + correo 1:
@@ -159,7 +159,7 @@ Si caduca el token de clonación: `cd CLONACION_CARPETA` → `python renovar_tok
 | No llega correo | `CORREOS_AVISO`, scope Gmail, renovar token |
 | CSV vacío | Estructura de carpetas, permisos, columna destino |
 | Cloud SQL no conecta | IP autorizada + `.env` |
-| Formato falla | Pasar `--carpeta` / `--carpeta-formato` |
+| Formato falla | Indicar `--carpeta` / `--carpeta-formato` con el enlace o ID de la carpeta |
 
 
 ==================================================

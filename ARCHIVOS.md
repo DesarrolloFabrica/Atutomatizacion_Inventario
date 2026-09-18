@@ -114,8 +114,7 @@ LMS_Fabrica/   (CSV + Cloud SQL + correo)
 RUTAS Y METADATA
 ==================================================
 
-Origen/destino/cliente salen de RUTAS.xlsx.
-No hay diccionario hardcodeado de programas en el codigo.
+Origen, destino y cliente se toman de RUTAS.xlsx.
 
 
 ==================================================
@@ -130,11 +129,11 @@ CORREOS (HAY DOS)
 ORDEN DE COMANDOS
 ==================================================
 
-  python run_flujo.py --carpeta-formato <ID_o_URL_Drive>
+  python run_flujo.py --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"
 
   # Bloques sueltos:
   cd CAMBIAR_FORMATO
-  python convertir_jpg_a_png.py --carpeta <ID_o_URL_Drive>
+  python convertir_jpg_a_png.py --carpeta "https://drive.google.com/drive/folders/TU_ID"
 
   cd ..\CLONACION_CARPETA
   python clone_carpeta_drive.py

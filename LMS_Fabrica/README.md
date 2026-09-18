@@ -32,7 +32,7 @@ python cargar_base_gcp.py -i lms_base_rutas.csv --schema fabrica_pruebas
 | LMS_correcciones | PRODUCTO | LMS_Carga |
 
 Indexación: `G`+dígitos si existe; si no, stem del archivo (Moodle, etc.).
-Origen/destino/cliente salen del Excel (sin diccionario hardcodeado de programas).
+Origen, destino y cliente salen del Excel.
 
 ## Configuración
 

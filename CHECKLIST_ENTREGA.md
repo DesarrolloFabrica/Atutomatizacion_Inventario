@@ -25,7 +25,7 @@ B. EJECUCIÓN (elige una)
 
 Opción continua (recomendado):
 
-- [ ] Se ejecutó: `python run_flujo.py --carpeta-formato <ID_o_URL>` (o `--sin-formato` si ya está en PNG)
+- [ ] Se ejecutó: `python run_flujo.py --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"` (o `--sin-formato` si el lote ya está en PNG)
 - [ ] El orquestador terminó con "FLUJO COMPLETO: OK"
 
 Opción por bloques: continuar con C–D abajo.
@@ -35,7 +35,7 @@ Opción por bloques: continuar con C–D abajo.
 C. FORMATO JPG → PNG (obligatorio en flujo diario)
 --------------------------------------------------
 
-- [ ] Se pasó `--carpeta` / `--carpeta-formato` (ID o URL Drive; sin hardcode)
+- [ ] Se indicó la carpeta de Drive con `--carpeta` / `--carpeta-formato` (enlace o ID)
 - [ ] Script terminó sin error
 - [ ] En Drive ya no quedan JPG del lote (quedaron PNG)
 

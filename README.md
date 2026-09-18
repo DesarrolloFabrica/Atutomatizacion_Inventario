@@ -30,7 +30,7 @@ Documentacion extra por carpeta y listado de archivos:
 
 ## Flujo general
 
-1. Convertir JPG a PNG en Drive (`--carpeta` / `--carpeta-formato`).
+1. Convertir JPG a PNG en Drive (indicar la carpeta con `--carpeta-formato`).
 2. Leer `RUTAS.xlsx` y clonar carpeta origen -> destino.
 3. Generar inventario (Excel local + Google Sheet) y enviar **correo 1**.
 4. Escanear solo el **destino**, generar CSV intermedio.
@@ -39,7 +39,7 @@ Documentacion extra por carpeta y listado de archivos:
 El inventario va **después** del clon (compara origen vs destino).
 
 ```powershell
-python run_flujo.py --carpeta-formato <ID_o_URL_Drive>
+python run_flujo.py --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"
 ```
 
 Opciones: `--excel RUTA`, `--sin-formato`, `--sin-clon`, `--sin-gcp`, `--sin-correo`.
@@ -117,7 +117,7 @@ Detalle completo de columnas, valores y mapeo a GCP:
 ver `DICCIONARIO_DATOS_EXCEL.md`.
 
 El nombre del **programa** en GCP sale del nombre de la carpeta en Drive.
-Cliente/origen/destino salen del Excel (no hay diccionario hardcodeado de programas).
+Cliente, origen y destino se toman del Excel.
 
 
 ## Dos reglas distintas
@@ -208,7 +208,7 @@ En nube o equipo compartido: secretos fuera del repo (nunca versionar
 ## Ejecutar flujo continuo (recomendado)
 
 ```powershell
-python run_flujo.py --carpeta-formato <ID_o_URL_Drive>
+python run_flujo.py --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"
 ```
 
 Encadena formato → clonación/inventario → CSV → Cloud SQL.
@@ -219,10 +219,10 @@ Encadena formato → clonación/inventario → CSV → Cloud SQL.
 ```powershell
 cd CAMBIAR_FORMATO
 pip install -r requirements.txt
-python convertir_jpg_a_png.py --carpeta <ID_o_URL_Drive>
+python convertir_jpg_a_png.py --carpeta "https://drive.google.com/drive/folders/TU_ID"
 ```
 
-La carpeta se pasa por argumento (no hay ID hardcodeado en el script).
+La carpeta de Drive se indica en cada corrida con `--carpeta` (enlace o ID).
 
 
 ## Ejecutar clonacion + inventario + correo

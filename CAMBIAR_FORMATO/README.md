@@ -1,27 +1,53 @@
 # CAMBIAR_FORMATO
 
-Convierte JPG/JPEG a PNG en una carpeta de Google Drive (y subcarpetas).
-Paso **obligatorio** del flujo diario (antes del clon).
+Convierte imágenes JPG/JPEG a PNG dentro de una carpeta de Google Drive
+(incluye subcarpetas). Es el primer paso del flujo diario, antes de clonar.
+
+## Qué debes indicar
+
+En cada ejecución se indica **qué carpeta de Drive** se va a procesar, con
+`--carpeta`. Puedes usar:
+
+- el **enlace** de la carpeta (el que copias desde el navegador), o
+- el **ID** de la carpeta (la parte final del enlace, después de `/folders/`).
+
+Ejemplo de enlace:
+
+`https://drive.google.com/drive/folders/1MwOPrhc-BO2ZXnF-guC2pRcU9LER_Qqa`
+
+Ahí el ID es: `1MwOPrhc-BO2ZXnF-guC2pRcU9LER_Qqa`
 
 ## Uso
 
 ```powershell
 cd CAMBIAR_FORMATO
 pip install -r requirements.txt
-python convertir_jpg_a_png.py --carpeta <ID_o_URL_Drive>
+python convertir_jpg_a_png.py --carpeta "https://drive.google.com/drive/folders/TU_ID"
 ```
 
-`--carpeta` es obligatorio (ID o URL). No hay carpeta hardcodeada en el código.
+O solo con el ID:
+
+```powershell
+python convertir_jpg_a_png.py --carpeta TU_ID
+```
+
+En el flujo completo:
+
+```powershell
+python run_flujo.py --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"
+```
+
+Si el lote ya está en PNG, puedes omitir este paso con `--sin-formato`.
 
 ## Archivos
 
-- `convertir_jpg_a_png.py` — oficial
+- `convertir_jpg_a_png.py` — script oficial
 - `codigo.js` / `codigos.txt` — respaldo Apps Script
 - `requirements.txt`
 
-Secretos locales (NO Git): `credenciales.json`, `token.json`.
+Credenciales locales (no van a Git): `credenciales.json`, `token.json`.
 
 ## Notas
 
-- No lee `RUTAS.xlsx`, no envía correo, no toca Cloud SQL.
-- En `run_flujo.py`: `--carpeta-formato` (o `--sin-formato` solo si el lote ya está en PNG).
+- No lee `RUTAS.xlsx`, no envía correo y no escribe en Cloud SQL.
+- El JPG original pasa a la papelera de Drive; el PNG queda en la misma carpeta.

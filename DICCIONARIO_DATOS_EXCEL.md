@@ -107,7 +107,7 @@ QUE NO ES ESTE EXCEL
 
 - No es el inventario (eso lo genera la clonación).
 - No es el CSV que va a Cloud SQL (eso lo genera `generar_base_rutas.py`).
-- Origen/destino/cliente del Excel son la fuente de rutas; no hay catálogo hardcodeado de programas.
+- Origen, destino y cliente del Excel son la fuente de rutas a procesar.
 
 
 --------------------------------------------------

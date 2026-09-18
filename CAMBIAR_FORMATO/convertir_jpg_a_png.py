@@ -7,7 +7,7 @@ El JPG original va a la papelera. El PNG queda en el mismo lugar.
 No usa Excel. No manda correo. No toca GCP.
 
 Uso:
-  python convertir_jpg_a_png.py --carpeta <ID_o_URL_Drive>
+  python convertir_jpg_a_png.py --carpeta "https://drive.google.com/drive/folders/TU_ID"
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ DRIVE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 def extraer_id_carpeta(entrada: str) -> str:
-    """Extrae ID de carpeta Drive desde URL o ID crudo (sin hardcodear)."""
+    """Obtiene el ID de carpeta de Drive a partir del enlace o del ID."""
     texto = entrada.strip().strip('"')
     parsed = urlparse(texto)
     if parsed.scheme and parsed.netloc:
@@ -52,10 +52,12 @@ def extraer_id_carpeta(entrada: str) -> str:
         query_id = parse_qs(parsed.query).get("id", [""])[0]
         if query_id and DRIVE_ID_PATTERN.fullmatch(query_id):
             return query_id
-        raise ValueError(f"No se pudo extraer ID de carpeta: {entrada}")
+        raise ValueError(f"No se pudo leer el ID de carpeta desde: {entrada}")
     if DRIVE_ID_PATTERN.fullmatch(texto):
         return texto
-    raise ValueError(f"Valor no válido (pasa ID o URL de carpeta Drive): {entrada}")
+    raise ValueError(
+        f"Valor no válido. Usa el enlace de la carpeta en Drive o su ID: {entrada}"
+    )
 
 
 def guardar_token(creds) -> None:
@@ -182,7 +184,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--carpeta",
         required=True,
-        help="ID o URL de la carpeta Drive a procesar (no hardcodeado).",
+        help="Enlace o ID de la carpeta de Google Drive a procesar.",
     )
     return parser.parse_args(argv)
 

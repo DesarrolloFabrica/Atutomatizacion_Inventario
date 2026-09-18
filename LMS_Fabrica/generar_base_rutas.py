@@ -8,7 +8,7 @@ Salida:   CSV tipo studio_results (ej. lms_base_rutas.csv).
 
 Indexa archivos con código G+dígitos si lo tienen; si no, usa el stem
 (p. ej. Moodle 01_Quiz.txt). Lo que se escanea sale solo del Excel
-(origen/destino/cliente); no hay diccionario hardcodeado de programas.
+(origen, destino y cliente).
 
 Siguiente script: cargar_base_gcp.py
 """
@@ -53,7 +53,7 @@ SALIDA_DEFAULT = BASE_DIR / "lms_base_rutas.csv"
 # CSV de referencia opcional (IDs históricos). Vacío = no usar. Origen/destino salen del Excel.
 REF_DEFAULT = BASE_DIR / "studio_results_referencia.csv"
 
-# Ya no hay catálogo hardcodeado de programas: cliente/escuela salen del Excel y de Drive.
+# Cliente y escuela salen del Excel y de la estructura de carpetas en Drive.
 
 
 _ROMAN_SEMESTRE = {
