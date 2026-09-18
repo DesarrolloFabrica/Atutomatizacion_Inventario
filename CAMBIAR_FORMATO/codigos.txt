@@ -1,20 +1,26 @@
 # CAMBIAR_FORMATO — codigos.txt
-# -----------------------------
-# Copia de respaldo del mismo script Apps Script que codigo.js
-# (JPG → PNG en Drive). No forma parte del flujo Python oficial.
-# Preferir convertir_jpg_a_png.py en la PC, o codigo.js en Apps Script.
-#
-# El contenido debajo es el código JS (igual que codigo.js).
+# Copia de respaldo de codigo.js (alternativa Apps Script).
+# El flujo oficial es convertir_jpg_a_png.py.
 
 function convertirJPGaPNG() {
-  var idCarpeta = '1LexISrqWxiC3tAgfq3SQjyL6Pxh_0-GM';
+  var idCarpeta = Browser.inputBox(
+    'Conversión JPG a PNG',
+    'Indique el ID de la carpeta de Drive a procesar:',
+    Browser.Buttons.OK_CANCEL
+  );
+
+  if (!idCarpeta || idCarpeta === 'cancel') {
+    Logger.log('Operación cancelada: no se indicó ID de carpeta.');
+    return;
+  }
+
+  idCarpeta = String(idCarpeta).trim();
   var carpetaPrincipal = DriveApp.getFolderById(idCarpeta);
 
   var contador = 0;
   var errores = 0;
 
   function procesarCarpeta(carpeta) {
-    // Procesa los JPG de esta carpeta
     var archivos = carpeta.getFilesByType(MimeType.JPEG);
 
     while (archivos.hasNext()) {
@@ -24,7 +30,6 @@ function convertirJPGaPNG() {
       try {
         var blob = archivo.getBlob();
         var blobPNG = blob.getAs('image/png');
-
         var nuevoNombre = nombreOriginal.replace(/\.(jpg|jpeg)$/i, '') + '.png';
         blobPNG.setName(nuevoNombre);
 
@@ -32,15 +37,16 @@ function convertirJPGaPNG() {
         archivo.setTrashed(true);
 
         contador++;
-        Logger.log('Convertido: ' + nombreOriginal + ' -> ' + nuevoNombre + ' (en carpeta: ' + carpeta.getName() + ')');
-
+        Logger.log(
+          'Convertido: ' + nombreOriginal + ' -> ' + nuevoNombre +
+          ' (en carpeta: ' + carpeta.getName() + ')'
+        );
       } catch (e) {
         errores++;
         Logger.log('Error al convertir ' + nombreOriginal + ': ' + e.message);
       }
     }
 
-    // Entra a cada subcarpeta y repite el proceso
     var subcarpetas = carpeta.getFolders();
     while (subcarpetas.hasNext()) {
       procesarCarpeta(subcarpetas.next());
@@ -48,6 +54,8 @@ function convertirJPGaPNG() {
   }
 
   procesarCarpeta(carpetaPrincipal);
-
-  Logger.log('Proceso terminado. Archivos convertidos: ' + contador + '. Errores: ' + errores);
+  Logger.log(
+    'Proceso terminado. Archivos convertidos: ' + contador +
+    '. Errores: ' + errores
+  );
 }
