@@ -1,78 +1,69 @@
 # CAMBIAR_FORMATO
 
-Convierte imágenes JPG/JPEG a PNG dentro de una carpeta de Google Drive
-(incluye subcarpetas). Es el **primer paso** del flujo diario, antes de clonar.
+Convierte imágenes JPG/JPEG a PNG en una carpeta de Google Drive y sus
+subcarpetas. Corresponde al primer paso del flujo operativo, antes de la clonación.
 
-## Primera vez (configuración)
+## Requisitos
 
-1. Instalar dependencias:
+- Python 3.10 o superior
+- Dependencias: `pip install -r requirements.txt`
+- Credenciales OAuth de Google en esta carpeta:
+  - `credenciales.json`
+  - `token.json` (se genera en la primera autorización)
+- La cuenta asociada al token debe tener acceso a la carpeta de Drive indicada
 
-```powershell
-cd CAMBIAR_FORMATO
-pip install -r requirements.txt
-```
+Los archivos `credenciales.json`, `token.json` y `.env` no forman parte del
+repositorio.
 
-2. Colocar en esta carpeta (no van a Git; pedirlos al equipo si no los tienes):
-   - `credenciales.json` — OAuth Desktop de Google
-   - `token.json` — se crea al autorizar la primera vez (o cópialo desde `LMS_Fabrica/`)
+## Parámetro de carpeta
 
-3. La cuenta de Google del `token.json` debe tener **acceso** a la carpeta de Drive
-   que vas a procesar. Si Drive responde “File not found”, es un tema de permisos
-   o de cuenta, no del comando.
+En cada ejecución se especifica la carpeta de Drive con `--carpeta`:
 
-## Qué debes indicar en cada corrida
+- enlace de la carpeta, o
+- identificador (segmento posterior a `/folders/` en el enlace)
 
-La carpeta se indica con `--carpeta`. Puedes usar:
-
-- el **enlace** de la carpeta (copiado desde el navegador), o
-- el **ID** (la parte final del enlace, después de `/folders/`).
-
-Ejemplo:
+Ejemplo de enlace:
 
 ```text
-https://drive.google.com/drive/folders/TU_ID_DE_CARPETA
-                                 └── este es el ID ─┘
+https://drive.google.com/drive/folders/<ID_CARPETA>
 ```
 
-## Uso
+## Ejecución
 
 ```powershell
 cd CAMBIAR_FORMATO
-python convertir_jpg_a_png.py --carpeta "https://drive.google.com/drive/folders/TU_ID"
+python convertir_jpg_a_png.py --carpeta "https://drive.google.com/drive/folders/<ID_CARPETA>"
 ```
-
-Solo con el ID:
 
 ```powershell
-python convertir_jpg_a_png.py --carpeta TU_ID
+python convertir_jpg_a_png.py --carpeta <ID_CARPETA>
 ```
 
-Desde el flujo completo (raíz del repo):
+Desde el orquestador del repositorio:
 
 ```powershell
-python run_flujo.py --excel "RUTA\RUTAS.xlsx" --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"
+python run_flujo.py --excel "<RUTA>\RUTAS.xlsx" --carpeta-formato "https://drive.google.com/drive/folders/<ID_CARPETA>"
 ```
 
-Si el lote **ya está en PNG**, puedes omitir este paso con `--sin-formato`.
+Si el material ya se encuentra en PNG, este paso puede omitirse con `--sin-formato`.
 
-## Qué hace el script
+## Comportamiento
 
-- Busca JPG/JPEG en la carpeta y subcarpetas
-- Crea el PNG en el mismo lugar
+- Localiza archivos JPG/JPEG en la carpeta indicada y subcarpetas
+- Genera el equivalente PNG en la misma ubicación
 - Envía el JPG original a la papelera de Drive
 
-Si imprime `Archivos convertidos: 0` y `Errores: 0`, el acceso funcionó pero
-**no había JPG** en esa carpeta (puede estar vacía o solo tener PNG).
+Un resultado `Archivos convertidos: 0` con `Errores: 0` indica acceso correcto
+sin archivos JPG presentes en la carpeta.
 
-## Archivos de esta carpeta
+## Contenido del directorio
 
-| Archivo | Uso |
+| Archivo | Descripción |
 |---|---|
-| `convertir_jpg_a_png.py` | Script oficial |
+| `convertir_jpg_a_png.py` | Script de ejecución |
 | `requirements.txt` | Dependencias |
-| `codigo.js` / `codigos.txt` | Respaldo Apps Script (no es el flujo diario) |
+| `codigo.js` / `codigos.txt` | Alternativa Apps Script (fuera del flujo diario) |
 
-## Notas
+## Alcance
 
-- No lee `RUTAS.xlsx`, no envía correo y no escribe en Cloud SQL.
-- No subir a Git: `credenciales.json`, `token.json`.
+Este módulo no lee `RUTAS.xlsx`, no envía correo y no escribe en Cloud SQL.

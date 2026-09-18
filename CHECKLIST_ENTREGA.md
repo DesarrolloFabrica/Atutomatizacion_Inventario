@@ -1,94 +1,91 @@
-# Checklist de entrega — Flujo Automatizacion Inventario
+# Checklist de entrega — Automatización Inventario
 
-Usa esta lista **al final de cada corrida** (o antes de dar por cerrado un lote)
-para confirmar que el proceso quedó bien.
-
-Marca cada ítem con `[x]` cuando esté OK.
+Lista de verificación al cierre de cada corrida o lote.
 
 
 --------------------------------------------------
-A. PREPARACIÓN (antes de correr)
+A. PREPARACIÓN
 --------------------------------------------------
 
-- [ ] `RUTAS.xlsx` lleno con columnas correctas (`cliente`, `etiqueta`, `origen`, `destino`)
-- [ ] Excel **guardado y cerrado**
-- [ ] URLs/IDs de origen y destino válidos (carpetas Drive accesibles)
+- [ ] `RUTAS.xlsx` con columnas `cliente`, `etiqueta`, `origen`, `destino`
+- [ ] Excel guardado y cerrado
+- [ ] Enlaces o IDs de origen y destino válidos
 - [ ] Valores de `cliente` válidos: `PRODUCTO`, `TANIA` o `LMS_correcciones`
-- [ ] Credenciales locales listas (`credentials.json` / `credenciales.json` + `token.json`)
-- [ ] `.env` con `CORREOS_AVISO` (y `DB_*` si vas a cargar GCP)
-- [ ] Dependencias instaladas (`pip install -r requirements.txt` en cada bloque que uses)
+- [ ] Credenciales OAuth disponibles (`credentials.json` / `credenciales.json` + `token.json`)
+- [ ] `.env` con `CORREOS_AVISO` (y `DB_*` si corresponde carga a Cloud SQL)
+- [ ] Dependencias instaladas (`pip install -r requirements.txt`)
 
 
 --------------------------------------------------
-B. EJECUCIÓN (elige una)
+B. EJECUCIÓN
 --------------------------------------------------
 
-Opción continua (recomendado):
+Flujo continuo:
 
-- [ ] Se ejecutó: `python run_flujo.py --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"` (o `--sin-formato` si el lote ya está en PNG)
-- [ ] El orquestador terminó con "FLUJO COMPLETO: OK"
+- [ ] Ejecución de `python run_flujo.py --excel "<RUTA>\RUTAS.xlsx" --carpeta-formato "<ENLACE_O_ID>"`
+- [ ] Finalización con mensaje `FLUJO COMPLETO: OK`
 
-Opción por bloques: continuar con C–D abajo.
-
-
---------------------------------------------------
-C. FORMATO JPG → PNG (obligatorio en flujo diario)
---------------------------------------------------
-
-- [ ] Se indicó la carpeta de Drive con `--carpeta` / `--carpeta-formato` (enlace o ID)
-- [ ] Script terminó sin error
-- [ ] En Drive ya no quedan JPG del lote (quedaron PNG)
+Ejecución por módulos: continuar con las secciones C a E.
 
 
 --------------------------------------------------
-D. CLONACIÓN + INVENTARIO + CORREO 1 (si corriste por bloques)
+C. CONVERSIÓN JPG → PNG
 --------------------------------------------------
 
-- [ ] Se ejecutó: `python clone_carpeta_drive.py`
-- [ ] Clonación terminó sin error (origen → destino)
-- [ ] Se generó inventario local (Excel de reporte)
-- [ ] Se actualizó / publicó la Google Sheet de inventario
-- [ ] Llegó el **correo 1** con el link de la Sheet
-- [ ] Conteos origen vs destino coherentes (sin faltantes graves)
+- [ ] Carpeta de Drive indicada con `--carpeta` / `--carpeta-formato`
+- [ ] Ejecución sin error
+- [ ] Material del lote disponible en PNG
 
 
 --------------------------------------------------
-E. CARGA LMS / GCP + CORREO 2 (si corriste por bloques)
+D. CLONACIÓN + INVENTARIO + CORREO 1
 --------------------------------------------------
 
-- [ ] Se generó CSV: `python generar_base_rutas.py --excel RUTAS.xlsx -o lms_base_rutas.csv`
-- [ ] El CSV tiene filas (no quedó vacío)
-- [ ] Se cargó a prueba: `python cargar_base_gcp.py -i lms_base_rutas.csv --schema fabrica_pruebas`
-- [ ] Llegó el **correo 2** (resumen + query SQL)
-- [ ] Query del correo abre resultados esperados en Cloud SQL Studio
-- [ ] Cliente / raíz del lote se ven correctos (`LMS_correcciones` → raíz LMS_Carga)
-
-
---------------------------------------------------
-F. LO QUE NO DEBE ESTAR EN LA ENTREGA DIARIA
---------------------------------------------------
-
-- [ ] **No** se corrió `clonar_esquema_pruebas.py` (eso es admin, una sola vez)
-- [ ] **No** se usó `--schema fabrica` salvo pedido explícito del equipo
-- [ ] **No** se subieron a Git: `.env`, `token.json`, credenciales, CSV/Excel de corrida
+- [ ] Ejecución de `python clone_carpeta_drive.py --excel "<RUTA>\RUTAS.xlsx"`
+- [ ] Clonación origen → destino completada
+- [ ] Inventario local generado (Excel de reporte)
+- [ ] Google Sheet de inventario actualizada
+- [ ] Correo 1 enviado con el enlace de la Sheet
+- [ ] Conteos origen vs destino coherentes
 
 
 --------------------------------------------------
-G. CIERRE / ENTREGA
+E. CARGA LMS / GCP + CORREO 2
+--------------------------------------------------
+
+- [ ] CSV generado (`generar_base_rutas.py`)
+- [ ] CSV con filas
+- [ ] Carga a `fabrica_pruebas` completada
+- [ ] Correo 2 enviado (resumen + consulta SQL)
+- [ ] Resultados verificados en Cloud SQL Studio
+- [ ] Cliente y raíz del lote correctos (`LMS_correcciones` → raíz LMS_Carga)
+
+
+--------------------------------------------------
+F. EXCLUSIONES DEL FLUJO DIARIO
+--------------------------------------------------
+
+- [ ] No se ejecutó `clonar_esquema_pruebas.py`
+- [ ] No se utilizó `--schema fabrica` salvo autorización expresa
+- [ ] No se versionaron secretos ni artefactos de corrida
+
+
+--------------------------------------------------
+G. CIERRE
 --------------------------------------------------
 
 - [ ] Documentación revisada si hubo cambios de proceso
-- [ ] Lote marcado como entregado / comunicado al equipo
+- [ ] Lote registrado como entregado
 
 ---
 
-## Resultado rápido
+## Registro
 
 | Bloque | OK | Observación |
 |---|---|---|
 | Preparación | | |
-| Ejecución continua / bloques | | |
-| Formato (si aplica) | | |
+| Ejecución | | |
+| Formato | | |
 | Clonación + correo 1 | | |
 | GCP + correo 2 | | |
 | Cierre | | |

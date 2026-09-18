@@ -1,41 +1,39 @@
-# LMS_Fabrica — Escaneo Drive y carga a Cloud SQL
+# LMS_Fabrica
 
-Toma las carpetas **destino** del Excel, genera un CSV y registra los archivos
-en Cloud SQL (`planner_db`). Al terminar envía el **correo 2**.
+Escanea las carpetas destino definidas en el Excel de rutas, genera un CSV
+intermedio y registra los archivos en Cloud SQL (`planner_db`). Al finalizar
+envía la notificación asociada (correo 2).
 
-Esquema diario: `fabrica_pruebas`.  
-Producción (`fabrica`) solo si el equipo lo pide explícitamente.
+Esquema operativo por defecto: `fabrica_pruebas`.  
+El esquema `fabrica` corresponde a producción y solo se utiliza cuando así se
+defina expresamente.
 
-## Primera vez (configuración)
+## Requisitos
 
-1. Instalar dependencias:
+- Python 3.10 o superior
+- Dependencias: `pip install -r requirements.txt`
+- Archivo `.env` (a partir de `.env.example`) con:
+  - `CORREOS_AVISO`
+  - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
+  - `LMS_SCHEMA=fabrica_pruebas`
+- Credenciales OAuth en esta carpeta:
+  - `credenciales.json`
+  - `token.json`
+- Acceso de red autorizado a Cloud SQL
 
-```powershell
-cd LMS_Fabrica
-pip install -r requirements.txt
-```
+Los archivos `credenciales.json`, `token.json`, `.env` y CSV de corrida no
+forman parte del repositorio.
 
-2. Copiar `.env.example` → `.env` y completar:
-   - `CORREOS_AVISO`
-   - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
-   - `LMS_SCHEMA=fabrica_pruebas`
-
-3. Colocar en esta carpeta (no van a Git):
-   - `credenciales.json` — OAuth Desktop
-   - `token.json` — sesión de Google
-
-4. La IP de tu PC debe estar autorizada en Cloud SQL (si vas a cargar).
-
-## Uso diario (dos pasos)
+## Ejecución
 
 ```powershell
 cd LMS_Fabrica
-python generar_base_rutas.py --excel "C:\ruta\RUTAS.xlsx" -o lms_base_rutas.csv
+python generar_base_rutas.py --excel "<RUTA>\RUTAS.xlsx" -o lms_base_rutas.csv
 python cargar_base_gcp.py -i lms_base_rutas.csv --schema fabrica_pruebas
 ```
 
-- Paso 1: escanea Drive (columna **destino** del Excel) y genera el CSV  
-- Paso 2: inserta en Cloud SQL y envía el correo 2  
+1. Escaneo de Drive (columna **destino** del Excel) y generación del CSV  
+2. Carga a Cloud SQL y envío del correo 2  
 
 Sin correo:
 
@@ -43,15 +41,15 @@ Sin correo:
 python cargar_base_gcp.py -i lms_base_rutas.csv --schema fabrica_pruebas --sin-correo
 ```
 
-## Qué entra al CSV / base
+## Criterios de indexación
 
-- Si el archivo empieza con `G` + números → ese es el código (ej. `G1001`)
-- Si no (Moodle u otros) → se usa el nombre sin extensión (ej. `01_Quiz`)
-- Cliente, origen y destino salen del Excel (no hay lista fija de programas en el código)
+- Si el nombre inicia con `G` seguido de dígitos, ese valor se usa como código
+- En caso contrario, se utiliza el nombre del archivo sin extensión
+- Cliente, origen y destino se obtienen del Excel
 
-## Excel → valores en GCP
+## Correspondencia Excel → Cloud SQL
 
-| Valor en Excel | cliente en GCP | raíz en GCP |
+| Valor en Excel | cliente | raíz |
 |---|---|---|
 | PRODUCTO | PRODUCTO | LMS_Carga |
 | TANIA | TANIA | LMS_Carga |
@@ -59,15 +57,11 @@ python cargar_base_gcp.py -i lms_base_rutas.csv --schema fabrica_pruebas --sin-c
 
 ## Scripts
 
-| Script | Rol |
+| Script | Función |
 |---|---|
-| `generar_base_rutas.py` | Paso 1 diario (Excel → CSV) |
-| `cargar_base_gcp.py` | Paso 2 diario (CSV → Cloud SQL + correo) |
-| `notificar_carga_lms.py` | Correo 2 (lo dispara la carga) |
+| `generar_base_rutas.py` | Excel → CSV |
+| `cargar_base_gcp.py` | CSV → Cloud SQL + correo 2 |
+| `notificar_carga_lms.py` | Notificación de carga |
 | `generar_base_lms.py` | Librería compartida |
 | `lms_lib/` | Constantes compartidas |
-| `clonar_esquema_pruebas.py` | Admin, **una sola vez** (NO diario) |
-
-## No subir a Git
-
-`credenciales.json`, `token.json`, `.env`, CSV de corridas.
+| `clonar_esquema_pruebas.py` | Administración de esquema (fuera del flujo diario) |

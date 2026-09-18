@@ -1,90 +1,86 @@
-# Documentación del proceso — Flujo Automatizacion Inventario
+# Documentación del proceso — Automatización Inventario
 
-Guía operativa para que cualquiera del equipo pueda ejecutar el flujo sin dudas.
-
-También ver: `README.md`, `DICCIONARIO_DATOS_EXCEL.md`, `CHECKLIST_ENTREGA.md`
-y el README de cada carpeta.
+Documentación operativa del flujo de preparación, clonación e indexación de
+materiales en Google Drive y Cloud SQL.
 
 
 ==================================================
-1. QUÉ HACE ESTE FLUJO
+1. OBJETIVO
 ==================================================
 
-1. Convierte JPG → PNG en Drive  
-2. Clona origen → destino, genera inventario (reporte) y envía correo 1  
-3. Registra el destino en Cloud SQL y envía correo 2  
+El flujo:
 
-
-==================================================
-2. ANTES DE EMPEZAR (UNA VEZ POR PC)
-==================================================
-
-1. Clonar / descargar este repositorio.
-2. Instalar Python 3.10+ y dependencias de cada bloque (`pip install -r requirements.txt`).
-3. Pedir al equipo (no están en Git):
-   - `credentials.json` / `credenciales.json` (OAuth Desktop)
-   - valores de `.env` (correos y, si aplica, base de datos)
-4. Crear `.env` desde `.env.example` (raíz o en cada bloque).
-5. Autorizar Google la primera vez (se crea `token.json`).
-6. Tener el Excel `RUTAS.xlsx` (columnas: cliente, etiqueta, origen, destino).
-
-La cuenta de Google del token debe tener acceso a las carpetas de Drive del lote.
+1. Convierte JPG/JPEG a PNG en Drive  
+2. Clona carpetas origen → destino, genera el reporte de inventario y envía el correo 1  
+3. Registra el destino en Cloud SQL y envía el correo 2  
 
 
 ==================================================
-3. WORKFLOW COMPLETO
+2. REQUISITOS DE ENTORNO
+==================================================
+
+- Python 3.10 o superior  
+- Dependencias de cada módulo (`pip install -r requirements.txt`)  
+- Credenciales OAuth de Google (`credentials.json` / `credenciales.json` y `token.json`)  
+- Archivo `.env` a partir de `.env.example` (correos y, para carga, parámetros de base de datos)  
+- Archivo `RUTAS.xlsx` con las columnas definidas en `DICCIONARIO_DATOS_EXCEL.md`  
+- Acceso a las carpetas de Drive del lote y, para carga, IP autorizada en Cloud SQL  
+
+Los secretos y archivos de corrida no se versionan en el repositorio.
+
+
+==================================================
+3. SECUENCIA DEL PROCESO
 ==================================================
 
 ```text
-1) CAMBIAR_FORMATO  (obligatorio)
-    JPG/JPEG -> PNG en Drive
-    Indicar carpeta con --carpeta / --carpeta-formato (enlace o ID)
+1) CAMBIAR_FORMATO
+    JPG/JPEG -> PNG
+    Parámetro: --carpeta / --carpeta-formato (enlace o ID de carpeta Drive)
               |
               v
 2) CLONACION_CARPETA
-    Lee RUTAS.xlsx (--excel o variable RUTAS_XLSX)
-      -> clonar origen -> destino
-      -> inventario = reporte Excel local + Google Sheet
-      -> CORREO 1 (link de la Sheet)
+    Entrada: RUTAS.xlsx (--excel o variable RUTAS_XLSX)
+      -> clonación origen -> destino
+      -> inventario (reporte Excel + Google Sheet)
+      -> correo 1
               |
               v
 3) LMS_Fabrica
-    Lee el mismo Excel (columna destino)
+    Entrada: RUTAS.xlsx (columna destino)
       -> CSV
       -> Cloud SQL (fabrica_pruebas)
-      -> CORREO 2
+      -> correo 2
 ```
 
-**Inventario** = reporte de control del clon (no es el CSV de GCP).  
-Orden interno del clon: **clonar → inventario → Sheet → correo**.
+El inventario es el reporte de control de la clonación.  
+No corresponde al CSV de carga hacia Cloud SQL.
+
+Orden interno del bloque de clonación: clonación → inventario → Sheet → correo 1.
 
 
 ==================================================
-4. CÓMO EJECUTAR
+4. EJECUCIÓN
 ==================================================
 
-### Opción A — Todo seguido (recomendado)
-
-Desde la raíz del repo:
+### Flujo completo
 
 ```powershell
-python run_flujo.py --excel "C:\ruta\RUTAS.xlsx" --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"
+python run_flujo.py --excel "<RUTA>\RUTAS.xlsx" --carpeta-formato "https://drive.google.com/drive/folders/<ID_CARPETA>"
 ```
 
-Opciones útiles:
-
-| Opción | Significado |
+| Parámetro | Descripción |
 |---|---|
 | `--excel` | Ruta a `RUTAS.xlsx` |
-| `--carpeta-formato` | Enlace o ID de carpeta para JPG→PNG |
-| `--sin-formato` | Omite JPG→PNG (solo si el lote ya está en PNG) |
-| `--sin-clon` | Omite clonación |
-| `--sin-gcp` | Omite CSV y Cloud SQL |
-| `--sin-correo` | No envía el correo 2 |
+| `--carpeta-formato` | Enlace o ID de carpeta para conversión JPG→PNG |
+| `--sin-formato` | Omite la conversión de formato |
+| `--sin-clon` | Omite la clonación |
+| `--sin-gcp` | Omite generación de CSV y carga a Cloud SQL |
+| `--sin-correo` | Omite el correo 2 |
 
-### Opción B — Por bloques
+### Ejecución por módulos
 
-Detalle y “primera vez” en:
+Ver la documentación de cada directorio:
 
 - `CAMBIAR_FORMATO/README.md`
 - `CLONACION_CARPETA/README.md`
@@ -92,34 +88,35 @@ Detalle y “primera vez” en:
 
 
 ==================================================
-5. REGLAS IMPORTANTES
+5. REGLAS OPERATIVAS
 ==================================================
 
-1. En GCP solo se escanea la columna **destino** del Excel.
-2. Hay **dos correos** distintos (Sheet del clon y resumen SQL).
-3. Esquema diario: `fabrica_pruebas`.
-4. `clonar_esquema_pruebas.py` **no** es flujo diario (admin, una vez).
-5. No versionar secretos (`.env`, tokens, credenciales).
-6. Clientes: `PRODUCTO`, `TANIA`, `LMS_correcciones` (en GCP correcciones → PRODUCTO).
-7. Indexación: si hay `G`+números se usa; si no, el nombre del archivo sin extensión.
+1. La carga a Cloud SQL utiliza únicamente la columna **destino** del Excel.  
+2. Existen dos notificaciones independientes (correo 1 y correo 2).  
+3. El esquema diario es `fabrica_pruebas`.  
+4. `clonar_esquema_pruebas.py` no forma parte del flujo diario.  
+5. No versionar secretos ni artefactos de corrida.  
+6. Valores de cliente admitidos: `PRODUCTO`, `TANIA`, `LMS_correcciones`  
+   (`LMS_correcciones` se registra en GCP como cliente PRODUCTO y raíz LMS_Carga).  
+7. Código de archivo: prefijo `G` + dígitos si existe; en su defecto, nombre sin extensión.
 
 
 ==================================================
-6. PROBLEMAS FRECUENTES
+6. INCIDENCIAS FRECUENTES
 ==================================================
 
-| Síntoma | Qué revisar |
+| Situación | Verificación |
 |---|---|
-| No lee el Excel | Cerrar `RUTAS.xlsx`; pasar `--excel` o `RUTAS_XLSX` |
-| File not found (Drive) | La cuenta del `token.json` no tiene acceso a esa carpeta |
-| No llega correo | `CORREOS_AVISO`, scopes Gmail, `renovar_token.py` |
+| Excel no leído | Archivo cerrado; parámetro `--excel` o variable `RUTAS_XLSX` |
+| File not found (Drive) | Permisos de la cuenta asociada al `token.json` sobre la carpeta |
+| Correo no recibido | `CORREOS_AVISO`, permisos Gmail, vigencia del token |
 | CSV vacío | Estructura de carpetas, permisos, columna destino |
-| Cloud SQL no conecta | IP autorizada + `.env` con `DB_*` |
-| Formato convierte 0 | Carpeta vacía o sin JPG (si Errores: 0, el acceso sí funcionó) |
+| Error de conexión a Cloud SQL | IP autorizada y variables `DB_*` en `.env` |
+| Conversión con 0 archivos | Carpeta sin JPG; si `Errores: 0`, el acceso fue correcto |
 
 
 ==================================================
-7. CIERRE DE LOTE
+7. CIERRE
 ==================================================
 
-Completar `CHECKLIST_ENTREGA.md`.
+Validación de entrega: `CHECKLIST_ENTREGA.md`.

@@ -1,44 +1,44 @@
 # Automatizacion Inventario (Flujo LMS)
 
-Herramientas en Python para fabrica de contenido (CUN):
-preparan material en Google Drive, lo clonan con control de calidad
-y lo registran en Cloud SQL (planner_db).
+Proyecto de automatización para la fábrica de contenido (CUN).
+Prepara material en Google Drive, ejecuta la clonación con control de calidad
+y registra el resultado en Cloud SQL (`planner_db`).
 
-Este repo **no** incluye secretos. Cada persona configura OAuth y `.env` en local.
-
-
-## Primera vez en un PC nuevo
-
-1. Instalar Python 3.10+ y las dependencias de cada carpeta (`pip install -r requirements.txt`).
-2. Pedir al equipo (no están en Git): `credentials.json` / `credenciales.json` y datos del `.env`.
-3. Copiar `.env.example` → `.env` y completar correos (y DB si vas a cargar GCP).
-4. Colocar el JSON de Google en la carpeta del bloque que uses; al autorizar se crea `token.json`.
-5. Tener el Excel `RUTAS.xlsx` (ver `DICCIONARIO_DATOS_EXCEL.md`).
-
-Guía completa: `DOCUMENTACION_PROCESO.md`.  
-Detalle por bloque: README dentro de `CAMBIAR_FORMATO/`, `CLONACION_CARPETA/`, `LMS_Fabrica/`.
+El repositorio no incluye secretos. La configuración OAuth y el archivo `.env`
+se definen en el entorno local de ejecución.
 
 
-## Capas del proyecto
+## Requisitos de entorno
 
-- `CAMBIAR_FORMATO/`: convierte JPG/JPEG a PNG en Drive (**obligatorio** en el flujo diario).
-- `CLONACION_CARPETA/`: clona origen → destino, genera inventario (reporte), Sheet y correo 1.
-- `LMS_Fabrica/`: escanea el destino, genera CSV, carga Cloud SQL y correo 2.
+1. Python 3.10 o superior y dependencias de cada módulo (`pip install -r requirements.txt`).
+2. Credenciales OAuth de Google (`credentials.json` / `credenciales.json`) y generación de `token.json`.
+3. Archivo `.env` a partir de `.env.example` (notificaciones y, para carga, parámetros de base de datos).
+4. Archivo `RUTAS.xlsx` conforme a `DICCIONARIO_DATOS_EXCEL.md`.
+
+Documentación operativa: `DOCUMENTACION_PROCESO.md`.  
+Documentación por módulo: `CAMBIAR_FORMATO/README.md`, `CLONACION_CARPETA/README.md`, `LMS_Fabrica/README.md`.
+
+
+## Módulos
+
+- `CAMBIAR_FORMATO/`: conversión JPG/JPEG → PNG en Drive (paso inicial del flujo).
+- `CLONACION_CARPETA/`: clonación origen → destino, inventario (reporte), Sheet y correo 1.
+- `LMS_Fabrica/`: escaneo del destino, CSV, carga a Cloud SQL y correo 2.
 
 
 ## Flujo general
 
-1. Convertir JPG a PNG (indicar carpeta con `--carpeta-formato`).
-2. Leer `RUTAS.xlsx` y clonar origen → destino.
-3. Inventario (reporte Excel + Google Sheet) y **correo 1**.
-4. Escanear el **destino**, generar CSV.
-5. Cargar Cloud SQL (`fabrica_pruebas`) y **correo 2**.
+1. Conversión JPG → PNG (`--carpeta-formato`).
+2. Lectura de `RUTAS.xlsx` y clonación origen → destino.
+3. Inventario (reporte Excel + Google Sheet) y correo 1.
+4. Escaneo del destino y generación del CSV.
+5. Carga a Cloud SQL (`fabrica_pruebas`) y correo 2.
 
 ```powershell
-python run_flujo.py --excel "C:\ruta\RUTAS.xlsx" --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"
+python run_flujo.py --excel "<RUTA>\RUTAS.xlsx" --carpeta-formato "https://drive.google.com/drive/folders/<ID_CARPETA>"
 ```
 
-Opciones: `--sin-formato`, `--sin-clon`, `--sin-gcp`, `--sin-correo`.
+Parámetros adicionales: `--sin-formato`, `--sin-clon`, `--sin-gcp`, `--sin-correo`.
 
 
 ## Estructura actual
@@ -204,22 +204,22 @@ En nube o equipo compartido: secretos fuera del repo (nunca versionar
 ## Ejecutar flujo continuo (recomendado)
 
 ```powershell
-python run_flujo.py --excel "C:\ruta\RUTAS.xlsx" --carpeta-formato "https://drive.google.com/drive/folders/TU_ID"
+python run_flujo.py --excel "<RUTA>\RUTAS.xlsx" --carpeta-formato "https://drive.google.com/drive/folders/<ID_CARPETA>"
 ```
 
 Encadena formato → clonación/inventario → CSV → Cloud SQL.
 
 
-## Ejecutar formato (obligatorio en flujo diario)
+## Ejecutar formato (paso inicial del flujo)
 
 ```powershell
 cd CAMBIAR_FORMATO
 pip install -r requirements.txt
-python convertir_jpg_a_png.py --carpeta "https://drive.google.com/drive/folders/TU_ID"
+python convertir_jpg_a_png.py --carpeta "https://drive.google.com/drive/folders/<ID_CARPETA>"
 ```
 
 La carpeta de Drive se indica en cada corrida con `--carpeta` (enlace o ID).
-Ver `CAMBIAR_FORMATO/README.md` (incluye sección “Primera vez”).
+Ver `CAMBIAR_FORMATO/README.md`.
 
 
 ## Ejecutar clonacion + inventario + correo
@@ -227,10 +227,10 @@ Ver `CAMBIAR_FORMATO/README.md` (incluye sección “Primera vez”).
 ```powershell
 cd CLONACION_CARPETA
 pip install -r requirements.txt
-python clone_carpeta_drive.py --excel "C:\ruta\RUTAS.xlsx"
+python clone_carpeta_drive.py --excel "<RUTA>\RUTAS.xlsx"
 ```
 
-Ese unico comando encadena inventario, Google Sheets y el correo 1.
+Ese comando encadena inventario, Google Sheets y el correo 1.
 Ver `CLONACION_CARPETA/README.md`.
 
 
@@ -256,22 +256,12 @@ python cargar_base_gcp.py -i lms_base_rutas.csv --schema fabrica_pruebas --sin-c
 ```
 
 
-## Que no es flujo diario
+## Fuera del flujo diario
 
-- Crear el esquema `fabrica_pruebas` (se hace una vez).
-- `clonar_esquema_pruebas.py` (solo administracion excepcional).
-- `comparar_clon_drive.py` (diagnostico manual).
-- `codigo.js` / `codigos.txt` (respaldo Apps Script; el oficial es Python).
+- Creación del esquema `fabrica_pruebas` (actividad administrativa puntual)
+- `clonar_esquema_pruebas.py`
+- `comparar_clon_drive.py` (diagnóstico)
+- `codigo.js` / `codigos.txt` (alternativa Apps Script; la ejecución oficial es Python)
 
-
-## Para analistas (una frase)
-
-Primero aseguras una copia limpia en Drive y un inventario compartido por correo;
-despues traduces esa carpeta destino a un CSV y la registras en la base de prueba,
-con otro correo para validar.
-
-Guia operativa completa: `DOCUMENTACION_PROCESO.md`.
-Validacion al cerrar: `CHECKLIST_ENTREGA.md`.
-
-
-Documentacion del flujo operativo LMS - alineada al estilo de repos Fabrica - sep 2026.
+Documentación operativa: `DOCUMENTACION_PROCESO.md`.  
+Validación de entrega: `CHECKLIST_ENTREGA.md`.
